@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>正弘城 3D 导览</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+      <div id="hud" class="hud">
+        <h1 class="hud-title">正弘城 3D 数智商圈</h1>
+        <p class="hud-sub">商场内导览 · 数据联动演示</p>
+        <div class="hud-panel" id="panel">
+          <p class="panel-hint">点击场景中的店铺点位查看详情</p>
+        </div>
+        <div class="hud-controls">
+          <label class="slider-label">
+            客流密度
+            <input type="range" id="flow" min="0" max="100" value="40" />
+          </label>
+          <button id="suggest" class="btn">生成 AI 建议</button>
+        </div>
+        <p class="hud-ai" id="ai-output">AI 建议将在此显示（规则引擎兜底，可离线）</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
