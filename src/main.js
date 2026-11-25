@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildScene, buildFloorsAndStores } from './scene.js';
-import { FLOORS, STORES, setFlowLevel, queueOf } from './mockData.js';
-import { updateStoreHeat } from './dataLink.js';
-import { generateSuggest } from './aiSuggest.js';
+import { FLOORS, STORES } from './mockData.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -17,8 +15,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 4, 0);
 controls.enableDamping = true;
 
-const storeMeshes = buildFloorsAndStores(scene, FLOORS, STORES);
-updateStoreHeat(storeMeshes, STORES);
+buildFloorsAndStores(scene, FLOORS, STORES);
 
 function resize() {
   const w = canvas.clientWidth || window.innerWidth;
@@ -37,23 +34,8 @@ function animate() {
 }
 animate();
 
-// ---- HUD 交互 ----
-const flowInput = document.getElementById('flow');
+// 点击店铺点位：射线检测 + 显示详情（F01 导览：找店）
 const panel = document.getElementById('panel');
-const aiOutput = document.getElementById('ai-output');
-
-flowInput.addEventListener('input', () => {
-  setFlowLevel(Number(flowInput.value));
-  updateStoreHeat(storeMeshes, STORES);
-});
-
-document.getElementById('suggest').addEventListener('click', async () => {
-  aiOutput.textContent = '正在生成建议…';
-  const text = await generateSuggest();
-  aiOutput.textContent = text;
-});
-
-// 点击店铺点位：射线检测 + 显示详情
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
@@ -64,11 +46,12 @@ canvas.addEventListener('click', (ev) => {
 
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(
-    [...storeMeshes.values()].map((e) => e.mesh)
+    scene.children.filter((o) => o.userData && o.userData.storeId)
   );
   if (hits.length > 0) {
     const store = hits[0].object.userData;
     const data = STORES.find((s) => s.id === store.storeId);
-    panel.innerHTML = `<strong>${store.name}</strong><br/>业态：${data.type}<br/>当前排队约 ${queueOf(data)} 人`;
+    const floor = FLOORS.find((f) => f.id === data.floor);
+    panel.innerHTML = `<strong>${store.name}</strong><br/>${floor.name} · ${data.type}`;
   }
 });
