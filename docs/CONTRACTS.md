@@ -199,3 +199,22 @@ setViewMode('orbit' | 'firstPerson')                  // D007：视角双模式
 | [#18](../../issues/18) | E-04 无 CI 构建门禁：资产格式 / 体积 / 数据字段全部裸奔 | E-工程 | 待认领 |
 
 > 编号说明：E-03 是 #19、E-04 是 #18（并发创建导致编号与 E 序号错位），按 Issue 编号查即可，不影响内容。
+
+### CI 门禁与验收的界线（E-04 落地后生效）
+
+`.github/workflows/check.yml` 三个 job：
+
+| job | 脚本 | 拦什么 |
+| --- | --- | --- |
+| `build` | `npm ci` + `npx vite build` | 语法错误、依赖缺失 |
+| `assets` | `scripts/check-assets.mjs` | 后缀与魔数不符、空文件、单文件 >200MB、总量 >500MB、文件名非 ASCII |
+| `data` | `scripts/check-stores.mjs` | `stores.json` 缺字段 / `floor` 不在 f6–f8 / 重复 id / `source` 为空 / `verified` 非法；文件不存在则 SKIP（B-01 未交付不算失败） |
+
+**硬纪律：CI 绿 ≠ 验收绿。**
+
+- CI 只保证「能构建 + 资产合法 + 数据结构完整」，**不保证 A01–A11 任何一条验收项通过**。
+- 血泪依据：PR #2 曾把「`vite build` 过」当成「F01 跑通」，实际 A01 只满足一部分、A02/A03 完全没实现。
+- 完成判定仍是：**Issue 关闭时 `ACCEPTANCE.md` 对应项通过且证据列已填**。任何人不得以「CI 全绿」为由关闭 Issue 或声称功能完成。
+- `data` job 只查结构，**不查店名真实性**；虚构店名、`public` 冒充 `observed` 等仍须 A03/A10 人工判。
+
+CI 上线依赖顺序：**先合 PR #21（E-01 假 PNG 修复）**，否则 `assets` job 会因 main 上现存的 32 张假 PNG 常红——那不是误报，是门禁正确抓到了历史遗留。
