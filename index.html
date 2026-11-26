@@ -9,12 +9,30 @@
   <body>
     <div id="app">
       <canvas id="scene"></canvas>
-      <div id="hud" class="hud">
-        <h1 class="hud-title">正弘城 3D 数智商圈</h1>
-        <p class="hud-sub">商场内 3D 导览地图</p>
-        <div class="hud-panel" id="panel">
-          <p class="panel-hint">点击场景中的店铺点位查看详情</p>
+
+      <header class="topbar">
+        <h1 class="title">正弘城 3D 数智商圈</h1>
+        <span class="subtitle">商场内 3D 导览地图</span>
+        <span class="badge" id="data-badge"></span>
+      </header>
+
+      <nav class="floorbar" id="floor-bar" aria-label="楼层选择"></nav>
+
+      <section class="sidebar">
+        <div class="search-row">
+          <input id="search-input" type="search" placeholder="搜店名 / 业态 / 楼层，如「火锅」" autocomplete="off" />
+          <button id="search-btn" type="button">搜索</button>
         </div>
+        <div class="results" id="results"></div>
+        <div class="modes">
+          <button id="view-btn" type="button" class="mode-btn">切换到第一人称</button>
+          <button id="step-btn" type="button" class="mode-btn">讲解模式：关</button>
+          <button id="next-btn" type="button" class="mode-btn">下一步</button>
+        </div>
+      </section>
+
+      <div class="hud-panel" id="panel">
+        <p class="dim">点击场景中的店铺查看详情</p>
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>
