@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>获取更多图片 · 手段调研报告</title>
+<style>
+  :root{--bg:#f7f8fa;--card:#fff;--ink:#1a1d21;--sub:#5a6472;--line:#e3e7ed;--brand:#2563eb;--ok:#0f9d58;--warn:#e6930d;--no:#d93025;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;padding:32px 20px}
+  .wrap{max-width:920px;margin:0 auto}
+  h1{font-size:26px;margin-bottom:6px}
+  .lead{color:var(--sub);font-size:14px;margin-bottom:26px}
+  h2{font-size:19px;margin:32px 0 14px;padding-left:11px;border-left:4px solid var(--brand)}
+  h3{font-size:15px;margin:20px 0 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#f0f3f8;font-weight:600}
+  .tag{display:inline-block;padding:1px 9px;border-radius:20px;font-size:12px;font-weight:600;color:#fff}
+  .t-ok{background:var(--ok)}.t-warn{background:var(--warn)}.t-no{background:var(--no)}
+  code{background:#eef1f5;padding:1px 6px;border-radius:5px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace}
+  pre{background:#1e2430;color:#e6edf3;padding:14px 16px;border-radius:9px;overflow:auto;font-size:12.5px;line-height:1.55;margin:8px 0}
+  .hl{background:#fff4d6;border-left:3px solid var(--warn);padding:12px 15px;border-radius:6px;margin:12px 0;font-size:14px}
+  .good{background:#e9f7ef;border-left:3px solid var(--ok);padding:12px 15px;border-radius:6px;margin:12px 0;font-size:14px}
+  ul{margin:6px 0 6px 20px}li{margin:4px 0}
+  .big{font-size:15px;font-weight:600}
+  .foot{color:var(--sub);font-size:12.5px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>获取更多图片 · 手段调研报告</h1>
+  <p class="lead">调研时间 2026-11-26 · 目标：在不依赖线下补拍的前提下，尽可能多地获取正弘城店铺门头、导览牌、中庭等建模素材。本报告逐条实测了各类渠道，给出可行性评级与可复用操作手段。</p>
+
+  <h2>一、结论速览</h2>
+  <div class="good">
+    <b>最有效的新手段：浏览器自动化 + 百度图片搜索 + JS 提取真实图片 URL。</b> 本次用它在 4 组关键词下抓到 500+ 张候选图，人工甄别后归档 <b>47 张</b>正弘城实景，其中含此前最缺的<b>清晰楼层导览牌</b>和 <b>楼层品牌全览图</b>。这是 curl 直接抓不到的（图片是 JS 动态加载），必须用能执行 JS 的浏览器。
+  </div>
+  <table>
+    <tr><th>渠道 / 手段</th><th>可行性</th><th>本次实测结果</th><th>适合拿什么</th></tr>
+    <tr><td><b>百度图片 + 浏览器渲染 + JS 提取</b></td><td><span class="tag t-ok">强推荐</span></td><td>抓到 500+ 候选，归档 47 张实景；含导览牌、楼层攻略、中庭、门头</td><td>门头、导览牌、中庭、外观——覆盖面最广</td></tr>
+    <tr><td>高德/百度地图 POI 图片 API</td><td><span class="tag t-warn">需 Key</span></td><td>官方接口返回 <code>photos.url</code> 字段，可批量拿商家实拍；需个人开发者 Key，网页无 Key 接口已失效</td><td>按店铺名精确拿门头，可批量</td></tr>
+    <tr><td>公众号文章采集（餐饮老板内参等）</td><td><span class="tag t-ok">强推荐</span></td><td>此前已验证：51 家门头测评抓到 17 张真实门头</td><td>餐饮层门头实拍，质量高</td></tr>
+    <tr><td>门户探店文（新浪/网易/izi）</td><td><span class="tag t-ok">可用</span></td><td>此前已抓 58+ 张；本次无新增</td><td>逐层实拍、场景、高清门头</td></tr>
+    <tr><td>携程 / Trip.com 实拍页</td><td><span class="tag t-no">污染</span></td><td>抓到 302 张，全是全国景点/酒店/美食推荐流，无正弘城实景</td><td>不建议</td></tr>
+    <tr><td>小红书搜索</td><td><span class="tag t-no">风控</span></td><td>浏览器打开即触发「IP at risk」安全限制</td><td>需换网络/登录，成本高</td></tr>
+    <tr><td>大众点评 H5</td><td><span class="tag t-no">风控</span></td><td>要求登录 + 验证，图片 CDN 直链返回 400</td><td>需登录态/代理池</td></tr>
+    <tr><td>Bing 图片搜索</td><td><span class="tag t-warn">弱</span></td><td>泛词被游戏模型图污染；精确中文词限流返回 0</td><td>备选，不如百度</td></tr>
+    <tr><td>高楼迷论坛「夜探正弘城」</td><td><span class="tag t-warn">需登录</span></td><td>正文图片附件需登录后可见</td><td>1F 施工期门头（有账号可试）</td></tr>
+    <tr><td>搜狗微信 / 顶端新闻</td><td><span class="tag t-no">失败</span></td><td>搜狗返回空；顶端新闻正文 JS 渲染且无直链</td><td>不建议</td></tr>
+  </table>
+
+  <h2>二、本次新手段的详细操作（可复用）</h2>
+  <h3>手法 A：浏览器自动化抓百度图片 <span class="tag t-ok">最有效</span></h3>
+  <div class="card">
+    <p>百度图片的真实图片地址写在 <code>&lt;img src&gt;</code> 里，是 JS 动态生成的，<code>curl</code> 抓源码拿不到。必须用能执行 JS 的浏览器（本次用 agent-browser），滚动加载后用 JS 把所有 <code>img.src</code> 提取出来。</p>
+    <pre># 1. 打开搜索页（关键词 URL 编码）
+agent-browser open "https://image.baidu.com/search/index?tn=baiduimage&word=郑州正弘城 楼层品牌全攻略"
+
+# 2. 滚动加载更多（重复 2-3 次）
+agent-browser eval "window.scrollTo(0,document.body.scrollHeight)"
+
+# 3. JS 提取所有真实图片 URL
+agent-browser eval "(()=>{const r=[];document.querySelectorAll('img').forEach(i=>{
+  const s=i.src;
+  if(s&&s.startsWith('https://img')&&s.includes('/it/u='))
+    r.push(s.split('?')[0]+'?w=500')
+});return JSON.stringify([...new Set(r)])})()"
+
+# 4. 把 URL 列表交给脚本批量下载 → 拼总览 → 人工甄别</pre>
+    <p class="hl"><b>关键提醒：</b>百度图片按关键词返回的结果混杂严重（商品图、其他商场、文字截图、无关实景）。<b>必须下载后拼总览人工甄别</b>，不能整批入库——本次 500+ 张里真正可用的只有 47 张。这与之前搜狗/Trip.com 的教训一致。</p>
+    <p><b>本次用过的 4 组关键词</b>（可继续扩展）：</p>
+    <ul>
+      <li><code>郑州正弘城 店铺门头</code> → GUCCI/OMEGA 专柜、霸王茶姬、九田家烤肉、中古名店</li>
+      <li><code>郑州正弘城 楼层品牌全攻略</code> → 楼层品牌全览图、文字分布图</li>
+      <li><code>正弘城 等位 排队</code> → 多为菜品图，收效小</li>
+      <li><code>正弘城 中庭 扶梯 内部</code> → 大量中庭环形挑空实景（19 张）</li>
+    </ul>
+    <p><b>可继续尝试的关键词</b>：正弘城 B1 食光里、正弘城 7F 犇小喜、正弘城 西西弗书店、正弘城 导览图 高清、正弘城 周大福、正弘城 二次元街区。</p>
+  </div>
+
+  <h3>手法 B：高德 / 百度地图 POI 图片 API <span class="tag t-warn">需申请 Key</span></h3>
+  <div class="card">
+    <p>高德开放平台「搜索 POI 2.0」接口，设置 <code>show_fields=photos</code> 后会返回每个商家的 <code>photos.url</code>（图片下载链接）和 <code>photos.title</code>。可先用多边形区域搜索圈定正弘城范围，再批量拉所有餐饮/店铺 POI 的门头图。</p>
+    <pre># 高德 Web 服务 API（需个人开发者 Key）
+https://restapi.amap.com/v5/place/polygon?key=YOUR_KEY&polygon=边界坐标&show_fields=photos&types=餐饮
+
+# 返回字段：poi.name / poi.photos[].url / poi.photos[].title</pre>
+    <p>优点：按店铺名精确取图、可批量、数据干净。缺点：需注册开发者申请 Key（个人有每日配额），免费额度拉一个商场足够。网页端的 <code>amap.com/service/poiInfo</code> 接口已失效（返回首页），走官方 Key 是正路。</p>
+  </div>
+
+  <h3>手法 C：公众号探店文采集 <span class="tag t-ok">质量最高</span></h3>
+  <div class="card">
+    <p>垂直类公众号的门头测评文质量最高——此前「餐饮老板内参」51 家测评抓到 17 张带店名的真实门头。可用微信文章搜索（<code>mp.weixin.qq.com/s?...</code>）抓取，图在 <code>mmbiz.qpic.cn</code>，带 Referer 可直接下载。</p>
+    <p><b>找文渠道</b>：普通搜索引擎搜「正弘城 门头 site:mp.weixin.qq.com」比搜狗微信好用（搜狗微信本次返回空）。本地商业号「郑州商业观察」是重要来源——本次百度图里 GUCCI/OMEGA 专柜图就带它的水印。</p>
+  </div>
+
+  <h2>三、本次新增归档（47 张）</h2>
+  <div class="card">
+    <p>已归入 <code>正弘城建模素材包/百度图片_浏览器采集/</code>，按内容命名：</p>
+    <ul>
+      <li><b>导览牌 / 楼层信息（5 张）</b>：<code>导览牌_楼层品牌列表_B082.jpg</code> 完整可读 L5–B2 业态；<code>楼层攻略_品牌全览图_A113.jpg</code>；楼层品牌分布文字 2 张</li>
+      <li><b>门头（10 张）</b>：气味图书馆、霸王茶姬、九田家烤肉、FUNZOO、中古名店、IT、韩料店等</li>
+      <li><b>中庭挑空实景（19 张）</b>：环形中庭俯瞰、扶梯、穹顶——正弘城标志性结构，建模骨架高价值</li>
+      <li><b>外观 / 场景（13 张）</b>：建筑外立面、夜景、CITYMART 超市、CGV 通道、餐饮层、自助取餐区</li>
+    </ul>
+    <p class="hl"><b>最有价值的一张</b>：<code>导览牌_楼层品牌列表_B082.jpg</code>——清晰读出 L5 餐饮美食广场 / L4 电玩城·零食·数字影院 / L3 时尚男装·运动休闲·儿童 / L2 时尚女装·护肤彩妆 / L1 黄金珠宝·名品腕表·化妆品 / B1 停车场·超市·潮流数码 / B2 停车场。这是把导览牌转成「店铺数组」的直接依据。</p>
+  </div>
+
+  <h2>三·补、第二轮扩采（58 张）</h2>
+  <div class="card">
+    <p>按报告建议的关键词又扩采一轮，6 组关键词共 836 张去重候选、下载 790 张，甄别归档 <b>58 张</b>，归入 <code>正弘城建模素材包/百度图片_扩采第二轮/</code>。各组效果：</p>
+    <table>
+      <tr><th>关键词</th><th>效果</th><th>拿到什么</th></tr>
+      <tr><td>正弘城 二次元街区</td><td><span class="tag t-ok">极佳</span></td><td>大量二次元街区实景、谷子店、泡泡玛特/Molly 装置、霓虹街景、店铺群</td></tr>
+      <tr><td>正弘城 B1 食光里 美食街</td><td><span class="tag t-ok">极佳</span></td><td><b>食光里 Food Court 招牌</b>、美食街通道/档口/人流、MUMUSO 门头</td></tr>
+      <tr><td>正弘城 西西弗书店</td><td><span class="tag t-ok">好</span></td><td><b>西西弗书店门头（红色门框+SISYPHE）</b>、Logo、书店内景</td></tr>
+      <tr><td>正弘城 周大福 珠宝</td><td><span class="tag t-warn">部分</span></td><td><b>周大福门头（红色店招）3 张</b>，其余为商品特写</td></tr>
+      <tr><td>正弘城 导览图 高清</td><td><span class="tag t-no">差</span></td><td>被误解为旅游攻略，多为菜品/酒店房间，弃用</td></tr>
+      <tr><td>正弘城 犇小喜 火锅自助</td><td><span class="tag t-no">差</span></td><td>全是菜品/食材图，无门头——印证新店线上无沉淀</td></tr>
+    </table>
+    <p class="good"><b>补齐了三处此前空白</b>：B1 美食街（食光里招牌）、2F 珠宝（周大福门头）、4F 书店（西西弗门头）——这三处上一轮标注"线上无解"，本轮换关键词后拿到了。</p>
+  </div>
+
+  <h2>四、仍然拿不到的（只能线下）</h2>
+  <div class="card">
+    <ul>
+      <li><b>等位区 / 叫号屏 / 大小桌冲突</b>：核心痛点三件套，线上搜索几乎没有，「等位 排队」关键词只返回菜品图。<b>只能现场拍或问 owner 要。</b></li>
+      <li><b>犇小喜真实门头</b>：11/16 新开，线上无沉淀；「犇小喜」关键词全是菜品图，宣传图里也没有门头实拍。</li>
+    </ul>
+  </div>
+
+  <h2>五、下一步建议</h2>
+  <div class="card">
+    <ol style="margin-left:20px">
+      <li>用手法 A 继续扩展关键词（见上面清单），可再补一批门头和中庭；</li>
+      <li>若需要<b>按店铺精确批量</b>取图，申请一个高德开发者 Key（免费），走 POI photos 接口；</li>
+      <li>把本次 47 张并入 zip 与 GitHub 分支（同前几批流程）；</li>
+      <li>核心痛点三件套仍需线下补拍——线上手段到此为止。</li>
+    </ol>
+  </div>
+
+  <p class="foot">本报告所有图片均为线上公开渠道采集，仅作 3D 建模参考，不作商业授权宣称；提交视频前注意不出现人脸正脸。</p>
+</div>
+</body>
+</html>
