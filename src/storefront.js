@@ -130,7 +130,15 @@ export function createShopUnit(opts) {
   let highlighted = false;
 
   // 契约 §四：setStoreVisual(storeId, { color, texture, pending })
-  function setVisual({ color: newColor, texture, pending } = {}) {
+  // badgeText 是 C-05 加的 dry-run 角标：参考素材必须醒目标出，不进交付
+  function setVisual({ color: newColor, texture, pending, badgeText } = {}) {
+    if (badgeText) {
+      badge.material.map?.dispose();
+      badge.material.map = createPendingBadgeTexture(badgeText);
+      badge.material.needsUpdate = true;
+      badge.scale.set(2.1, 0.42, 1);
+      badge.visible = true;
+    }
     if (typeof pending === 'boolean') {
       badge.visible = pending;
       bodyMat.color.setHex(pending ? 0x4b5563 : baseColor);

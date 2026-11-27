@@ -167,9 +167,9 @@ export function createDashboard({ root, stores = [], onStoreFocus = null }) {
   scenarioSec.appendChild(el('h3', '', '假设推演：如果……会怎样'));
   const controls = el('div', 'dash-controls');
   controls.innerHTML =
-    '<label>增加 2 人桌 <input type="range" id="dash-add" min="0" max="8" value="0" /><span id="dash-add-v">0</span> 张</label>' +
+    '<label>增加 2 人桌 <input type="range" id="dash-add" min="0" max="8" value="4" /><span id="dash-add-v">4</span> 张</label>' +
     '<label>降低到达率 <input type="range" id="dash-drop" min="0" max="50" value="0" /><span id="dash-drop-v">0</span>%</label>' +
-    '<label>延长容忍 <input type="range" id="dash-patience" min="0" max="30" value="0" /><span id="dash-patience-v">0</span> 分钟</label>';
+    '<label>延长容忍 <input type="range" id="dash-patience" min="0" max="30" value="10" /><span id="dash-patience-v">10</span> 分钟</label>';
   scenarioSec.appendChild(controls);
   const runBtn = el('button', 'dash-run', '启用该方案');
   runBtn.type = 'button';

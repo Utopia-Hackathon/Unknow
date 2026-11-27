@@ -10,6 +10,7 @@ import { createDashboard } from './dashboard.js';
 import { createPerfMonitor, pixelRatioFor } from './perf.js';
 import { createShopUnit } from './storefront.js';
 import { loadStorefront } from './texturePipeline.js';
+import { isDryRun } from './textureManifest.js';
 import { createShell } from './shell.js';
 import { BACKDROP, isOnSlab, ringSlots, makeSlotAt } from './floorPlan.js';
 import { buildVerticals } from './backgroundShops.js';
@@ -220,12 +221,27 @@ function buildShops() {
     buildVerticals({ floorLabel: f.name, floorTop: top, group });
   }
 
-  // 贴图按表加载（texturePipeline.TEXTURES）。表里没有 = 保持文字招牌，
-  // 这是 11-29 采集前的正常状态，不是失败。
+  // 贴图按 textureManifest.js 加载（单一真源）。
+  // 缺图/坏图不静默吞：单店降级文字招牌 + pending 角标，其余店正常。
+  const dryRun = isDryRun();
+  if (dryRun) {
+    // dry-run 只用于管线自测，显示的是第三方媒体参考素材，必须醒目声明
+    document.body.classList.add('texture-dryrun');
+    const banner = document.createElement('div');
+    banner.className = 'dryrun-banner';
+    banner.textContent = '纹理 dry-run · 当前显示的是第三方媒体参考素材，非交付贴图';
+    document.body.appendChild(banner);
+  }
   for (const s of stores) {
-    loadStorefront(s.id).then((tex) => {
-      if (!tex) return;
-      storeMeshes.get(s.id)?.setVisual({ texture: tex });
+    loadStorefront(s.id).then((r) => {
+      const entry = storeMeshes.get(s.id);
+      if (!entry) return;
+      if (r.texture) {
+        entry.setVisual({ texture: r.texture, badgeText: r.dry ? '参考素材' : null });
+      } else if (r.status === 'failed') {
+        // 贴图坏了 → 文字招牌 + 「数据待补」角标（Issue #43 要求）
+        entry.setVisual({ pending: true });
+      }
     });
   }
 }
@@ -310,6 +326,14 @@ function showResult(result) {
   } else if (result.status === 'noCoords') {
     const c = result.matches[0];
     setMessage(`<strong>数据待补</strong><br/>${c.note}<br/><span class="dim">来源：${c.source}；未虚构点位坐标</span>`, 'warn');
+    // DEF-003（A 独立复核）：结果区也要有反馈，否则视线停在列表里会以为没反应
+    if (ui.results) {
+      ui.results.innerHTML = '';
+      const row = document.createElement('div');
+      row.className = 'result-empty dim';
+      row.textContent = `${c.name} · 数据待补（未虚构坐标）`;
+      ui.results.appendChild(row);
+    }
   } else if (result.status === 'notFound') {
     setMessage(result.message, 'warn');
   } else {
@@ -468,7 +492,13 @@ function onCanvasClick(ev) {
     setMessage(`<strong>${s.name}</strong><br/>缺少 entrance 坐标，点击跳转不可用（数据待补）`, 'warn');
   } else {
     guide.flyToStore(s.id);
-    setMessage(`<strong>${s.name}</strong><br/>${floors.find((f) => f.id === s.floor)?.name || ''} · ${s.category || ''}<br/><span class="dim">来源 ${s.source} · ${s.verified}</span>`);
+    // RISK-005（A 独立复核）：public 直译让评委以为位置已核实，改成中文档位说明
+    const VERIFIED_LABEL = {
+      observed: '现场核实',
+      public: '位置示意（未现场核）',
+      unverified: '示意位置，待现场核实',
+    };
+    setMessage(`<strong>${s.name}</strong><br/>${floors.find((f) => f.id === s.floor)?.name || ''} · ${s.category || ''}<br/><span class="dim">来源 ${s.source} · ${VERIFIED_LABEL[s.verified] || s.verified}</span>`);
   }
 }
 
