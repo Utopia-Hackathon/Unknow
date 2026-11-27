@@ -1,0 +1,42 @@
+name: check
+
+# E-04 工程门禁（Issue #18）：build / assets / data 三个 job。
+# 边界：只做校验，不做部署；CI 绿 ≠ 验收绿（见 docs/CONTRACTS.md §八）。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: build · vite 生产构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx vite build
+
+  assets:
+    name: assets · 格式/体积/文件名
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/check-assets.mjs
+
+  data:
+    name: data · stores.json 结构
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/check-stores.mjs
