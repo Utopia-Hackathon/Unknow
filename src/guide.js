@@ -9,7 +9,6 @@ const RING_LIFT = 0.10;
 const NODE_LIFT = 0.12;
 
 export function createGuide({ scene, camera, controls, stores, floors, floorView, storeMeshes, onStep, onFloorChange }) {
-  const floorById = new Map(floors.map((f) => [f.id, f]));
   const storeById = new Map(stores.map((s) => [s.id, s]));
 
   const group = new THREE.Group();

@@ -144,10 +144,14 @@ function setViewMode(mode) {
   viewMode = mode;
   if (mode === 'firstPerson') {
     orbit.enabled = false;
-    const top = floorView.getFloorTop('f6');
+    // 从当前所在层进入；「全部」视图时落到最底层，避免站到半空。
+    const cur = floorView.getFloor();
+    const baseId = cur === 'all' ? floors[0]?.id : cur;
+    const top = floorView.getFloorTop(baseId);
     camera.position.set(0, (typeof top === 'number' ? top : 4) + 1.6, 8);
-    pointer.lock();
-    setMessage('第一人称：WASD 移动，鼠标转向，Esc 退出', 'ok');
+    // 不自动 lock：一旦锁定鼠标，UI 按钮全部点不到（只能 Esc）。
+    // 改为点画面才锁，保证「下一步 / 讲解模式」等按钮随时可用。
+    setMessage('第一人称：<strong>点击画面</strong>锁定鼠标漫游，WASD 移动，Esc 退出', 'ok');
   } else {
     pointer.unlock();
     orbit.enabled = true;
@@ -198,13 +202,17 @@ function updateFirstPerson(dt) {
   camera.position.x = THREE.MathUtils.clamp(camera.position.x, -13, 13);
   camera.position.z = THREE.MathUtils.clamp(camera.position.z, -9, 9);
   const currentFloor = floorView.getFloor();
-  const top = floorView.getFloorTop(currentFloor === 'all' ? 'f6' : currentFloor);
+  const baseId = currentFloor === 'all' ? floors[0]?.id : currentFloor;
+  const top = floorView.getFloorTop(baseId);
   if (typeof top === 'number') camera.position.y = top + 1.6;
 }
 
 const raycaster = new THREE.Raycaster();
 function onCanvasClick(ev) {
-  if (viewMode === 'firstPerson') return;
+  if (viewMode === 'firstPerson') {
+    if (!pointer.isLocked) pointer.lock();
+    return;
+  }
   const rect = canvas.getBoundingClientRect();
   const ndc = new THREE.Vector2(
     ((ev.clientX - rect.left) / rect.width) * 2 - 1,
