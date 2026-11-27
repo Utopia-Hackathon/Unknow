@@ -273,3 +273,29 @@ body {
 
 /* A03 数据待补：结果区空态提示（DEF-003） */
 .result-empty { padding: 8px 10px; font-size: 12px; color: #fbbf24; }
+
+/* AI 建议卡片（Issue #50） */
+.dash-advisor { margin-top: 16px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.dash-advisor h3 { font-size: 13px; margin: 0 0 10px; }
+.dash-rule-tag { font-size: 11px; color: #94a3b8; font-weight: 400; margin-left: 8px; }
+.dash-headline { font-size: 15px; font-weight: 600; color: #6ee7b7; margin-bottom: 6px; }
+.dash-problem { font-size: 12px; color: #cbd5e1; margin-bottom: 10px; }
+.dash-evidence { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.dash-chip { font-family: ui-monospace, monospace; font-size: 11px; background: #334155; color: #e2e8f0; padding: 3px 8px; border-radius: 4px; }
+.dash-action { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #334155; border-radius: 5px; margin-bottom: 6px; font-size: 12px; }
+.dash-action-text { color: #e2e8f0; }
+.dash-action-exp { color: #6ee7b7; font-family: ui-monospace, monospace; font-size: 11px; }
+.dash-caveat { margin-top: 10px; font-size: 11px; color: #94a3b8; }
+
+/* AI 建议卡片（Issue #50） */
+.dash-advisor { margin-top: 16px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+.dash-advisor h3 { font-size: 13px; margin: 0 0 10px; }
+.dash-rule-tag { font-size: 11px; color: #94a3b8; font-weight: 400; margin-left: 8px; }
+.dash-headline { font-size: 15px; font-weight: 600; color: #6ee7b7; margin-bottom: 6px; }
+.dash-problem { font-size: 12px; color: #cbd5e1; margin-bottom: 10px; }
+.dash-evidence { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.dash-chip { font-family: ui-monospace, monospace; font-size: 11px; background: #334155; color: #e2e8f0; padding: 3px 8px; border-radius: 4px; }
+.dash-action { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #334155; border-radius: 5px; margin-bottom: 6px; font-size: 12px; }
+.dash-action-text { color: #e2e8f0; }
+.dash-action-exp { color: #6ee7b7; font-family: ui-monospace, monospace; font-size: 11px; }
+.dash-caveat { margin-top: 10px; font-size: 11px; color: #94a3b8; }
