@@ -7,19 +7,22 @@ import { createFloorView } from './floorView.js';
 import { searchStores } from './search.js';
 import { createGuide } from './guide.js';
 import { createPerfMonitor, pixelRatioFor } from './perf.js';
-import { createStorefront, facingToAtrium, STORE_BOX } from './storefront.js';
+import { createShopUnit } from './storefront.js';
 import { loadStorefront } from './texturePipeline.js';
 import { createShell } from './shell.js';
+import { BACKDROP, isOnSlab, ringSlots } from './floorPlan.js';
+import { buildVerticals } from './backgroundShops.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(pixelRatioFor(0));
 
 const scene = buildScene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
-// 总览默认机位：套上建筑外壳（约 40m 高）之后必须退远，
-// 原来的 (20,18,24) 只框得住三层楼板，外壳会把画面撑破。
-const VIEW_HOME = { x: 38, y: 26, z: 46, tx: 0, ty: 0, tz: 0 };
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 600);
+// 总览默认机位：楼层按导览牌改成 47×43 的环形板、外壳 56×52 之后要退到 ~64m，
+// 原来的 (20,18,24) 连一层楼都框不下。
+// 抬高俯角：店铺一律面朝中庭，机位太低就只看见一圈后背。
+const VIEW_HOME = { x: 30, y: 46, z: 40, tx: 0, ty: -2, tz: 0 };
 camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
 
 const orbit = new OrbitControls(camera, renderer.domElement);
@@ -89,10 +92,17 @@ function setMessage(text, kind = 'info') {
   ui.panel.innerHTML = text;
 }
 
-// 门脸体块（D008）：替换原来的 1.6³ 纯色方块。
-// 有贴图用贴图、无图用文字招牌，两条路都在 texturePipeline / storefront 里，
-// 这里只负责摆位与朝向——店正面朝中庭，相机飞近时看到的是门脸而不是后墙。
-function buildStoreMeshes() {
+// 铺位生成（D008 + 导览牌结构）。
+//
+// 真实商场的铺位是沿走廊切出来的：面宽随楼层轮廓变化、临街面常常是斜的、
+// 进深各不相同。所以不用统一方盒子，而是用 floorPlan.ringSlots() 沿外轮廓
+// 切出 26 块铺位，核心点位吸附到最近的槽位，背景铺位吃剩下的。
+const SLOT_COUNT = 26;
+const SLOT_DEPTH = 5.5;
+const MAX_BACKDROP = 12; // D011 §3 上限
+const BACKDROP_COLORS = [0x3f4757, 0x464e5f, 0x3a4251, 0x4a5263, 0x424a5a];
+
+function clearShops() {
   for (const entry of storeMeshes.values()) {
     entry.group.parent?.remove(entry.group);
     entry.group.traverse((o) => {
@@ -104,19 +114,85 @@ function buildStoreMeshes() {
     });
   }
   storeMeshes = new Map();
+}
 
-  for (const s of stores) {
-    const floor = floors.find((f) => f.id === s.floor);
-    if (!floor) continue;
-    const top = floorView.getFloorTop(s.floor);
-    const { dirX, dirZ, rotY } = facingToAtrium(s);
-    const entry = createStorefront(s, { floorLabel: floor.name });
-    // 体块深 3m：中心后退 d/2，让「正面」正好落在点位坐标上，
-    // 这样 entrance（点位外侧 1.5m）才确实站在门外，而不是嵌进门脸里。
-    entry.group.position.set(s.x - dirX * (STORE_BOX.d / 2), top, s.z - dirZ * (STORE_BOX.d / 2));
-    entry.group.rotation.y = rotY;
-    floorView.getGroup(s.floor).add(entry.group);
-    storeMeshes.set(s.id, entry);
+function buildShops() {
+  clearShops();
+  const coreNames = stores.map((s) => s.name);
+
+  for (const f of floors) {
+    const top = floorView.getFloorTop(f.id);
+    const group = floorView.getGroup(f.id);
+    const slots = ringSlots(SLOT_COUNT, SLOT_DEPTH);
+    const taken = new Set();
+
+    // 1) 核心点位：吸附到最近的空槽位
+    for (const s of stores.filter((x) => x.floor === f.id)) {
+      let bestIdx = -1;
+      let bestD = Infinity;
+      slots.forEach((slot, i) => {
+        if (taken.has(i)) return;
+        const d = Math.hypot(slot.cx - s.x, slot.cz - s.z);
+        if (d < bestD) { bestD = d; bestIdx = i; }
+      });
+      if (bestIdx < 0) continue;
+      taken.add(bestIdx);
+      const slot = slots[bestIdx];
+
+      // 坐标吸附到实际铺位：光圈、路径、飞近落点都跟着几何走，
+      // 否则会出现「店在这块地，光圈画在旁边」的错位。
+      s.x = slot.cx;
+      s.z = slot.cz;
+      s.entrance = { x: slot.face.x, z: slot.face.z };
+
+      const unit = createShopUnit({
+        storeId: s.id, name: s.name, category: s.category,
+        floorLabel: f.name, floorId: f.id,
+        poly: slot.poly, face: slot.face, rotY: slot.rotY,
+      });
+      unit.group.position.y = top;
+      group.add(unit.group);
+      storeMeshes.set(s.id, unit);
+    }
+
+    // 2) 背景铺位：剩余槽位里均匀抽（D011 §3）
+    const names = (BACKDROP[f.id] || []).filter(
+      (n) => !coreNames.some((cn) => cn.includes(n) || n.includes(cn))
+    );
+    const free = [...slots.keys()].filter((i) => !taken.has(i));
+    const want = Math.min(names.length, MAX_BACKDROP, free.length);
+    for (let i = 0; i < want; i++) {
+      const slot = slots[free[Math.floor((i * free.length) / want)]];
+      const unit = createShopUnit({
+        name: names[i], floorLabel: f.name, floorId: f.id,
+        poly: slot.poly, face: slot.face, rotY: slot.rotY,
+        color: BACKDROP_COLORS[i % BACKDROP_COLORS.length],
+        interactive: false,
+      });
+      unit.group.position.y = top;
+      group.add(unit.group);
+    }
+
+    // 3) 空槽位填成连续墙面：真实商场的铺位界面是连着的，
+    //    隔一段空一段会像「一排展台」而不是「一圈商铺」。这些墙没有招牌、
+    //    没有店名，不算背景铺位（D011 §3 的 8–12 个上限不受影响）。
+    const usedIdx = new Set([...taken]);
+    const pickedIdx = new Set();
+    for (let i = 0; i < want; i++) pickedIdx.add(free[Math.floor((i * free.length) / want)]);
+    for (const idx of slots.keys()) {
+      if (usedIdx.has(idx) || pickedIdx.has(idx)) continue;
+      const slot = slots[idx];
+      const fill = createShopUnit({
+        name: '', floorLabel: f.name, floorId: f.id,
+        poly: slot.poly, face: slot.face, rotY: slot.rotY,
+        color: 0x333a48, interactive: false, withSign: false,
+      });
+      fill.group.position.y = top;
+      group.add(fill.group);
+    }
+
+    // 4) 垂直交通
+    buildVerticals({ floorLabel: f.name, floorTop: top, group });
   }
 
   // 贴图按表加载（texturePipeline.TEXTURES）。表里没有 = 保持文字招牌，
@@ -140,6 +216,7 @@ function highlightFloorButton(floorId) {
 function focusFloor(floorId) {
   if (viewMode !== 'orbit') return; // 第一人称由玩家自己走，不抢镜头
   if (floorId === 'all') {
+    shell?.setRoofVisible(true);
     camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
     orbit.target.set(VIEW_HOME.tx, VIEW_HOME.ty, VIEW_HOME.tz);
     orbit.update();
@@ -147,9 +224,15 @@ function focusFloor(floorId) {
   }
   const top = floorView.getFloorTop(floorId);
   if (typeof top !== 'number') return;
-  // 到该层上方斜看：横向距离和总览同一比例，只是整体下移，观感才连续
-  camera.position.set(26, top + 12, 32);
-  orbit.target.set(0, top + 1.4, 0);
+  // 到该层上方斜看。楼板 47×43，站太远招牌就只剩几个像素——
+  // 这个距离下大约能看清半个环，正好是「站在中庭边上看一层」的观感。
+  shell?.setRoofVisible(false);
+  // 距离 ~26m：能看清半圈铺位和店名，又不至于被前景一堵墙挡住。
+  // 再远一点（40m）招牌就只剩几十像素，等于白建。
+  // 站在中庭南侧上方朝北看：前景是中庭洞（空的），对面一整排铺位的正面进画面。
+  // 机位放到环外的话，最近的那排铺位会变成一堵墙挡住全部。
+  camera.position.set(5, top + 10, 10);
+  orbit.target.set(5, top + 1.2, -9);
   orbit.update();
 }
 
@@ -272,9 +355,20 @@ function updateFirstPerson(dt) {
   if (keys.has('KeyA')) move.sub(right);
   if (move.lengthSq() === 0) return;
   move.normalize().multiplyScalar(speed);
-  camera.position.add(move);
-  camera.position.x = THREE.MathUtils.clamp(camera.position.x, -13, 13);
-  camera.position.z = THREE.MathUtils.clamp(camera.position.z, -9, 9);
+
+  // 楼板现在是环形的、中间有中庭洞，不能再靠矩形 clamp ——
+  // 那样人会直接走进中庭掉下去。按 floorPlan 的真实轮廓判断，
+  // 并且分轴试探：贴着墙走的时候还能沿着墙滑动，不会一下卡死。
+  const nx = camera.position.x + move.x;
+  const nz = camera.position.z + move.z;
+  if (isOnSlab(nx, nz, 0.9)) {
+    camera.position.x = nx;
+    camera.position.z = nz;
+  } else {
+    if (isOnSlab(nx, camera.position.z, 0.9)) camera.position.x = nx;
+    if (isOnSlab(camera.position.x, nz, 0.9)) camera.position.z = nz;
+  }
+
   const currentFloor = floorView.getFloor();
   const baseId = currentFloor === 'all' ? floors[0]?.id : currentFloor;
   const top = floorView.getFloorTop(baseId);
@@ -327,7 +421,7 @@ async function init() {
   stores = loaded.stores;
   floorView = createFloorView(floors, scene);
   shell = createShell(scene);
-  buildStoreMeshes();
+  buildShops();
   guide = createGuide({
     scene, camera, controls: orbit, stores, floors, floorView, storeMeshes,
     onStep: (node, i, total) => setMessage(`导览进度 ${i + 1}/${total}（讲解模式，点「下一步」继续）`),

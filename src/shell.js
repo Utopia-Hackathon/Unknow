@@ -18,8 +18,9 @@ const FLOOR_H = 4;          // 与 mockData.FLOORS 的间距一致（y = 0 / 4 /
 const BOTTOM_LEVEL = 1;     // 1F 地面
 const TOP_LEVEL = 9;        // 9F 顶
 const BASE_Y = -5 * FLOOR_H; // f6 的 y=0 对应 6F 地面，往下推 5 层到 1F 地面
-const OUTER_W = 34;
-const OUTER_D = 24;
+// 外扩到能包住 floorPlan 的楼板（约 47×43）+ 两侧走廊。
+const OUTER_W = 56;
+const OUTER_D = 52;
 
 // 立面纹理：一层楼一个循环（窗带 + 石材带）。repeat 按实际层数铺。
 // 刻意画得「粗」：远处看时密集竖线会糊成格栅噪点，反而比不画难看得多。
@@ -82,9 +83,11 @@ export function createShell(scene) {
   north.position.set(0, centerY, -OUTER_D / 2);
   group.add(north);
 
-  // 屋顶：用薄板而不是单面 Plane，免得法线朝向搞反从上面看不见
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(OUTER_W, 0.6, OUTER_D), plainMat);
-  roof.position.set(0, BASE_Y + totalH, 0);
+  // 屋顶：只盖后半（-z 侧）。
+  // 铺满的话，相机从上方斜看时整片屋顶把内部挡死——试过，画面就是一块板。
+  // 留一半敞开，等于把娃娃屋从斜上方剖开，同时仍有「有顶」的建筑感。
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(OUTER_W, 0.6, OUTER_D / 2), plainMat);
+  roof.position.set(0, BASE_Y + totalH, -OUTER_D / 4);
   group.add(roof);
 
   // 屋顶女儿墙：一圈薄板，从斜上方看给建筑一个收边（缺了会像纸片）
@@ -124,6 +127,9 @@ export function createShell(scene) {
   return {
     group,
     setVisible(v) { group.visible = v; },
+    // 切单层时把屋顶收起来：相机在中庭上方俯视，屋顶正好横在视线上，
+    // 不收的话整层都被那块板挡住。
+    setRoofVisible(v) { roof.visible = v; },
     // 降级用：只留墙，去掉女儿墙与封边（远景细节）
     setDetailLevel(level) {
       group.traverse((o) => {
