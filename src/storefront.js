@@ -83,7 +83,7 @@ export function createShopUnit(opts) {
   // 门脸暗面：招牌以下的墙，压暗一档，让人看出「门在这儿」
   const frontH = height - signH - 0.16;
   frontMat = new THREE.MeshStandardMaterial({
-    color: 0x1b222c, roughness: 0.95, emissive: 0x141a24, emissiveIntensity: 0.3,
+    color: 0x191d24, roughness: 0.95, emissive: 0x4a3a24, emissiveIntensity: 0.45,
   });
   const front = new THREE.Mesh(new THREE.PlaneGeometry(signW * 0.96, frontH), frontMat);
   front.position.set(face.x, frontH / 2 + 0.05, face.z);
@@ -95,7 +95,7 @@ export function createShopUnit(opts) {
   // —— 顶部吊牌：俯视时唯一能读的招牌 ——
   // 用 Box 的 +y 面贴图而不是旋转过的 Plane——Plane 转 90° 后 UV 是反的，字会倒着。
   const topTex = createSignTexture({ name, category: '', _floorLabel: '' });
-  const topSideMat = new THREE.MeshStandardMaterial({ color: 0x1a202b, roughness: 0.8 });
+  const topSideMat = new THREE.MeshStandardMaterial({ color: 0x3c4048, roughness: 0.8 });
   const topFaceMat = new THREE.MeshStandardMaterial({
     map: topTex, emissiveMap: topTex, emissive: 0xffffff,
     emissiveIntensity: 1.0, roughness: 0.7,
@@ -159,9 +159,9 @@ export function createShopUnit(opts) {
     if (highlighted === on || !signMat) return;
     highlighted = on;
     signMat.emissiveIntensity = on ? 1.5 : 0.9;
-    signMat.emissive.setHex(on ? 0xfbbf24 : 0xffffff);
+    signMat.emissive.setHex(on ? 0xe0b060 : 0xffffff);
     // 门脸只提一点暖光，不要跟着招牌一起拉满——拉满会糊成一片橙色
-    frontMat.emissive.setHex(on ? 0x3a2408 : 0x141a24);
+    frontMat.emissive.setHex(on ? 0x5a4020 : 0x4a3a24);
     frontMat.emissiveIntensity = on ? 0.45 : 0.3;
   }
 

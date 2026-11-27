@@ -17,6 +17,8 @@ import * as THREE from 'three';
 const FLOOR_H = 4;          // 与 mockData.FLOORS 的间距一致（y = 0 / 4 / 8）
 const BOTTOM_LEVEL = 1;     // 1F 地面
 const TOP_LEVEL = 9;        // 9F 顶
+// 外壳高度只到 8F 楼板上方 4m（y=12）：再高会让中庭洞里看到外墙内侧的幕墙横条纹，
+// 读起来像「洞里有百叶」，而不是「透过中庭看到下层」。
 const BASE_Y = -5 * FLOOR_H; // f6 的 y=0 对应 6F 地面，往下推 5 层到 1F 地面
 // 外扩到能包住 floorPlan 的楼板（约 47×43）+ 两侧走廊。
 const OUTER_W = 56;
@@ -67,11 +69,11 @@ export function createShell(scene) {
   const group = new THREE.Group();
   group.userData = { kind: 'shell' };
 
-  const totalH = (TOP_LEVEL - BOTTOM_LEVEL + 1) * FLOOR_H; // 9 层
+  const totalH = 12 - BASE_Y; // 只到 8F 楼板上方 4m（y=12），不建满 9 层
   const centerY = BASE_Y + totalH / 2;
   const levels = totalH / FLOOR_H;
 
-  const plainMat = new THREE.MeshStandardMaterial({ color: 0x5f5b55, roughness: 0.92 });
+  const plainMat = new THREE.MeshStandardMaterial({ color: 0xd8d2c6, roughness: 0.92 });
 
   // 保留的两面外墙（-x 与 -z）：观众从 +x/+z 的切口看进去
   const west = new THREE.Mesh(new THREE.PlaneGeometry(OUTER_D, totalH), facadeFor(OUTER_D, levels));
@@ -91,7 +93,7 @@ export function createShell(scene) {
   group.add(roof);
 
   // 屋顶女儿墙：一圈薄板，从斜上方看给建筑一个收边（缺了会像纸片）
-  const parapetMat = new THREE.MeshStandardMaterial({ color: 0xa8a29a, roughness: 0.9, side: THREE.DoubleSide });
+  const parapetMat = new THREE.MeshStandardMaterial({ color: 0xe4ded2, roughness: 0.9, side: THREE.DoubleSide });
   const parapetH = 1.2;
   for (const [w, d, x, z] of [
     [OUTER_W, 0.3, 0, -OUTER_D / 2],
@@ -109,7 +111,7 @@ export function createShell(scene) {
   // 否则从切口看进去，楼层边缘是空的，楼板像浮在壳里。
   // 剖切的 +x/+z 两面**不加**——楼板本身是 Box，端面就在那儿；
   // 再加一条 34m 长的横条会从切口伸出来，看起来像笼子（试过，很丑）。
-  const edgeMat = new THREE.MeshStandardMaterial({ color: 0x6b6660, roughness: 0.95 });
+  const edgeMat = new THREE.MeshStandardMaterial({ color: 0xb8b0a2, roughness: 0.95 });
   for (let i = BOTTOM_LEVEL; i <= TOP_LEVEL + 1; i++) {
     const y = BASE_Y + (i - BOTTOM_LEVEL) * FLOOR_H - 0.175;
     for (const [bw, bd, bx, bz] of [

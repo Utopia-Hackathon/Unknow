@@ -22,16 +22,16 @@ export const FLOORS = [
 // 全部 verified=public（楼层有公开来源、方位为示意）。
 // 注意：编号按 D012 §五做了重排（凑凑已关闭剔除、上井剔除、新增滨寿司），不是原编号顺延。
 export const STORES = [
-  { id: 's01', name: '巴奴毛肚火锅', floor: 'f8', category: '火锅', x: -2, z: 16.5, entrance: { x: -1.5, z: 15.1 }, verified: 'public', source: 'E28', note: '导览牌位于 8F 南侧' },
-  { id: 's02', name: '太二酸菜鱼', floor: 'f8', category: '酸菜鱼', x: 15, z: 0, entrance: { x: 13.6, z: -0.6 }, verified: 'public', source: 'E28+E29', note: '导览牌位于中庭东南侧' },
-  { id: 's03', name: '曼玉融合餐厅', floor: 'f8', category: '融合菜', x: 3, z: -16.5, entrance: { x: 3.4, z: -15 }, verified: 'public', source: 'E28', note: '导览牌位于中庭北侧' },
-  { id: 's04', name: '炉小哥烤肉', floor: 'f8', category: '烤肉', x: -12.5, z: -14, entrance: { x: -11.2, z: -13.3 }, verified: 'public', source: 'E28', note: '导览牌位于 8F 西北角' },
-  { id: 's05', name: '胖哥俩肉蟹煲', floor: 'f8', category: '肉蟹煲', x: 17, z: 11.5, entrance: { x: 16.1, z: 10.3 }, verified: 'public', source: 'E29', note: '工商登记 L8-S7A，2026-10-29 仍开业' },
-  { id: 's06', name: '滨寿司 HAMA-SUSHI', floor: 'f8', category: '回转寿司', x: 19, z: 4.5, entrance: { x: 17.7, z: 3.7 }, verified: 'public', source: 'E29', note: '2026-06-30 开业 480㎡，高峰等位 3–4h、只现场取号' },
-  { id: 's07', name: '麻布食堂 Azabu', floor: 'f7', category: '日料', x: 3.5, z: 7.5, entrance: { x: 3.8, z: 6 }, verified: 'public', source: 'E26', note: '导览牌 L708，中庭南侧' },
-  { id: 's08', name: '豆捞坊', floor: 'f7', category: '潮汕牛肉火锅', x: -6.5, z: 1.5, entrance: { x: -5.1, z: 0.9 }, verified: 'public', source: 'E28+E29', note: '导览牌 L709，中庭西侧' },
-  { id: 's09', name: '犇小喜鲜活火锅自助', floor: 'f7', category: '火锅自助', x: 11.5, z: 15, entrance: { x: 11.1, z: 13.6 }, verified: 'public', source: 'E26', note: '11-16 开业为宣传口径，存续待核' },
-  { id: 's10', name: 'CGV影城', floor: 'f6', category: '影院', x: -13, z: 0, entrance: { x: -11.5, z: -0.3 }, verified: 'public', source: 'E29', note: '6F 西侧整片，非餐饮；无门头照走文字招牌降级' },
+  { id: 's01', name: '巴奴毛肚火锅', floor: 'f8', category: '火锅', x: 2, z: 24, entrance: { x: -1.5, z: 15.1 }, verified: 'public', source: 'E28', note: '导览牌位于 8F 南侧' },
+  { id: 's02', name: '太二酸菜鱼', floor: 'f8', category: '酸菜鱼', x: 12, z: -2, entrance: { x: 13.6, z: -0.6 }, verified: 'public', source: 'E28+E29', note: '导览牌位于中庭东南侧' },
+  { id: 's03', name: '曼玉融合餐厅', floor: 'f8', category: '融合菜', x: 5, z: -22, entrance: { x: 3.4, z: -15 }, verified: 'public', source: 'E28', note: '导览牌位于中庭北侧' },
+  { id: 's04', name: '炉小哥烤肉', floor: 'f8', category: '烤肉', x: -12, z: -22, entrance: { x: -11.2, z: -13.3 }, verified: 'public', source: 'E28', note: '导览牌位于 8F 西北角' },
+  { id: 's05', name: '胖哥俩肉蟹煲', floor: 'f8', category: '肉蟹煲', x: 16, z: 12, entrance: { x: 16.1, z: 10.3 }, verified: 'public', source: 'E29', note: '工商登记 L8-S7A，2026-10-29 仍开业' },
+  { id: 's06', name: '滨寿司 HAMA-SUSHI', floor: 'f8', category: '回转寿司', x: 18, z: 6, entrance: { x: 17.7, z: 3.7 }, verified: 'public', source: 'E29', note: '2026-06-30 开业 480㎡，高峰等位 3–4h、只现场取号' },
+  { id: 's07', name: '麻布食堂 Azabu', floor: 'f7', category: '日料', x: 2, z: 8, entrance: { x: 3.8, z: 6 }, verified: 'public', source: 'E26', note: '导览牌 L708，中庭南侧' },
+  { id: 's08', name: '豆捞坊', floor: 'f7', category: '潮汕牛肉火锅', x: -12, z: 6, entrance: { x: -5.1, z: 0.9 }, verified: 'public', source: 'E28+E29', note: '导览牌 L709，中庭西侧' },
+  { id: 's09', name: '犇小喜鲜活火锅自助', floor: 'f7', category: '火锅自助', x: 10, z: 18, entrance: { x: 11.1, z: 13.6 }, verified: 'public', source: 'E26', note: '11-16 开业为宣传口径，存续待核' },
+  { id: 's10', name: 'CGV影城', floor: 'f6', category: '影院', x: -18, z: 0, entrance: { x: -11.5, z: -0.3 }, verified: 'public', source: 'E29', note: '6F 西侧整片，非餐饮；无门头照走文字招牌降级' },
 ];
 
 // 公开资料里出现、但本期不建点位的品牌（D011 §4 / D012：未列入的不虚构坐标）。
