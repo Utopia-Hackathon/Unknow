@@ -6,10 +6,11 @@ import { loadStores, CATALOG_NO_COORDS } from './mockData.js';
 import { createFloorView } from './floorView.js';
 import { searchStores } from './search.js';
 import { createGuide } from './guide.js';
+import { createPerfMonitor, pixelRatioFor } from './perf.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(pixelRatioFor(0));
 
 const scene = buildScene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
@@ -42,6 +43,27 @@ let viewMode = 'orbit';
 let stepMode = false;
 let startStoreId = null;
 const keys = new Set();
+
+// 帧率监控（Issue #19 / E-03）。默认不显示 HUD，答辩画面里不能出现调试面板；
+// 验收时用 ?debug=1 打开，控制台有 window.__perf.stats() / dump() 可落盘 JSON。
+const perf = createPerfMonitor({
+  debug: new URLSearchParams(location.search).has('debug'),
+  onLevelChange: (levelIndex) => applyQuality(levelIndex),
+});
+
+// 降档只降画质，不降交互：像素比先降，L2 再让场景侧关掉次要细节。
+function applyQuality(levelIndex) {
+  renderer.setPixelRatio(pixelRatioFor(levelIndex));
+  const w = canvas.clientWidth || window.innerWidth;
+  const h = canvas.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  // floorView 在 init() 里才创建；降档可能在它之前触发，用可选调用。
+  if (levelIndex >= 2 && typeof floorView?.setDetailLevel === 'function') {
+    floorView.setDetailLevel(2);
+  }
+}
 
 function resize() {
   const w = canvas.clientWidth || window.innerWidth;
@@ -265,15 +287,16 @@ async function init() {
       : '点位：占位示意值（待 B 现场核实）';
   }
   const clock = new THREE.Clock();
-  function animate() {
+  function animate(ts) {
     const dt = Math.min(clock.getDelta(), 0.05);
+    perf.frame(ts);
     updateFirstPerson(dt);
     guide.update(dt);
     if (viewMode === 'orbit') orbit.update();
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
-  animate();
+  requestAnimationFrame(animate);
   setMessage('点击店铺查看详情；搜索店名生成导览路径', 'ok');
 }
 
