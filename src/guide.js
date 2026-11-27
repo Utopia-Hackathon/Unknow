@@ -35,7 +35,9 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
   function unhighlight() {
     if (!highlighted) return;
     const entry = storeMeshes.get(highlighted);
-    if (entry?.mat) {
+    if (entry?.setHighlight) {
+      entry.setHighlight(false);
+    } else if (entry?.mat) {
       entry.mat.emissive?.setHex(0x000000);
       entry.mat.emissiveIntensity = 1;
     }
@@ -47,7 +49,9 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
     const s = storeById.get(storeId);
     const entry = storeMeshes.get(storeId);
     if (!s || !entry) return false;
-    if (entry.mat?.emissive) {
+    if (entry.setHighlight) {
+      entry.setHighlight(true);
+    } else if (entry.mat?.emissive) {
       entry.mat.emissive.setHex(0xf59e0b);
       entry.mat.emissiveIntensity = 0.65;
     }
@@ -141,16 +145,18 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
     highlightStore(storeId);
     const top = floorView.getFloorTop(s.floor);
 
-    // 从店铺指向门口的方向，再往外退 4.5m 作为相机站位；视线对准店铺门头。
+    // 从店铺指向门口的方向，再往外退几步作为相机站位；视线对准门头招牌。
+    // 门脸体块 4×3×3（C-01）比原来的 1.6³ 方块大得多，退到 5.5m 才框得下，
+    // 视线抬到 1.5m 让招牌进画面——只看门板不看店名，等于白飞。
     const dx = s.entrance.x - s.x;
     const dz = s.entrance.z - s.z;
     const len = Math.hypot(dx, dz) || 1;
-    const stand = 4.5;
+    const stand = 5.5;
     const target = {
       x: s.entrance.x + (dx / len) * stand,
       y: top + 1.7,
       z: s.entrance.z + (dz / len) * stand,
-      lookAt: { x: s.x, y: top + 1.1, z: s.z },
+      lookAt: { x: s.x, y: top + 1.5, z: s.z },
     };
     animation = {
       waypoints: [target], index: 0, t: 0, stepMode: false, paused: false, onDone: null,

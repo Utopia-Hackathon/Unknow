@@ -7,17 +7,23 @@ import { createFloorView } from './floorView.js';
 import { searchStores } from './search.js';
 import { createGuide } from './guide.js';
 import { createPerfMonitor, pixelRatioFor } from './perf.js';
+import { createStorefront, facingToAtrium, STORE_BOX } from './storefront.js';
+import { loadStorefront } from './texturePipeline.js';
+import { createShell } from './shell.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(pixelRatioFor(0));
 
 const scene = buildScene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
-camera.position.set(20, 18, 24);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
+// 总览默认机位：套上建筑外壳（约 40m 高）之后必须退远，
+// 原来的 (20,18,24) 只框得住三层楼板，外壳会把画面撑破。
+const VIEW_HOME = { x: 38, y: 26, z: 46, tx: 0, ty: 0, tz: 0 };
+camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
 
 const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.target.set(0, 4, 0);
+orbit.target.set(VIEW_HOME.tx, VIEW_HOME.ty, VIEW_HOME.tz);
 orbit.enableDamping = true;
 
 const pointer = new PointerLockControls(camera, renderer.domElement);
@@ -37,6 +43,7 @@ const ui = {
 let floors = [];
 let stores = [];
 let floorView;
+let shell;
 let guide;
 let storeMeshes = new Map();
 let viewMode = 'orbit';
@@ -59,9 +66,10 @@ function applyQuality(levelIndex) {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  // floorView 在 init() 里才创建；降档可能在它之前触发，用可选调用。
-  if (levelIndex >= 2 && typeof floorView?.setDetailLevel === 'function') {
-    floorView.setDetailLevel(2);
+  // floorView / shell 在 init() 里才创建；降档可能在它之前触发，用可选调用。
+  if (levelIndex >= 2) {
+    if (typeof floorView?.setDetailLevel === 'function') floorView.setDetailLevel(2);
+    if (typeof shell?.setDetailLevel === 'function') shell.setDetailLevel(2);
   }
 }
 
@@ -81,18 +89,43 @@ function setMessage(text, kind = 'info') {
   ui.panel.innerHTML = text;
 }
 
+// 门脸体块（D008）：替换原来的 1.6³ 纯色方块。
+// 有贴图用贴图、无图用文字招牌，两条路都在 texturePipeline / storefront 里，
+// 这里只负责摆位与朝向——店正面朝中庭，相机飞近时看到的是门脸而不是后墙。
 function buildStoreMeshes() {
-  for (const entry of storeMeshes.values()) scene.remove(entry.mesh);
+  for (const entry of storeMeshes.values()) {
+    entry.group.parent?.remove(entry.group);
+    entry.group.traverse((o) => {
+      if (o.isMesh) {
+        o.geometry?.dispose();
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
+        else o.material?.dispose();
+      }
+    });
+  }
   storeMeshes = new Map();
+
   for (const s of stores) {
     const floor = floors.find((f) => f.id === s.floor);
     if (!floor) continue;
-    const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), mat);
-    mesh.position.set(s.x, floor.y + 0.3 + 0.8, s.z);
-    mesh.userData = { storeId: s.id, name: s.name, floorId: s.floor };
-    floorView.getGroup(s.floor).add(mesh);
-    storeMeshes.set(s.id, { mesh, mat });
+    const top = floorView.getFloorTop(s.floor);
+    const { dirX, dirZ, rotY } = facingToAtrium(s);
+    const entry = createStorefront(s, { floorLabel: floor.name });
+    // 体块深 3m：中心后退 d/2，让「正面」正好落在点位坐标上，
+    // 这样 entrance（点位外侧 1.5m）才确实站在门外，而不是嵌进门脸里。
+    entry.group.position.set(s.x - dirX * (STORE_BOX.d / 2), top, s.z - dirZ * (STORE_BOX.d / 2));
+    entry.group.rotation.y = rotY;
+    floorView.getGroup(s.floor).add(entry.group);
+    storeMeshes.set(s.id, entry);
+  }
+
+  // 贴图按表加载（texturePipeline.TEXTURES）。表里没有 = 保持文字招牌，
+  // 这是 11-29 采集前的正常状态，不是失败。
+  for (const s of stores) {
+    loadStorefront(s.id).then((tex) => {
+      if (!tex) return;
+      storeMeshes.get(s.id)?.setVisual({ texture: tex });
+    });
   }
 }
 
@@ -100,6 +133,24 @@ function highlightFloorButton(floorId) {
   if (!ui.floorBar) return;
   [...ui.floorBar.querySelectorAll('button')]
     .forEach((b) => b.classList.toggle('active', b.dataset.floor === floorId));
+}
+
+// 切层时相机跟着楼层走（A01：保留水平视角、只挪高度）。
+// 原来切层只是改可见性，镜头还停在整栋楼外面，切到 8F 看到的是一块远处的小板。
+function focusFloor(floorId) {
+  if (viewMode !== 'orbit') return; // 第一人称由玩家自己走，不抢镜头
+  if (floorId === 'all') {
+    camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
+    orbit.target.set(VIEW_HOME.tx, VIEW_HOME.ty, VIEW_HOME.tz);
+    orbit.update();
+    return;
+  }
+  const top = floorView.getFloorTop(floorId);
+  if (typeof top !== 'number') return;
+  // 到该层上方斜看：横向距离和总览同一比例，只是整体下移，观感才连续
+  camera.position.set(26, top + 12, 32);
+  orbit.target.set(0, top + 1.4, 0);
+  orbit.update();
 }
 
 function renderFloorBar() {
@@ -115,6 +166,7 @@ function renderFloorBar() {
       floorView.setFloor(f.id);
       guide.setVisibleFloor(f.id);
       highlightFloorButton(f.id);
+      focusFloor(f.id);
       setMessage(f.id === 'all' ? '全部楼层（半透明楼板）' : `已切到 ${f.name}`);
     });
     ui.floorBar.appendChild(btn);
@@ -177,8 +229,8 @@ function setViewMode(mode) {
   } else {
     pointer.unlock();
     orbit.enabled = true;
-    camera.position.set(20, 18, 24);
-    orbit.target.set(0, 4, 0);
+    camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
+    orbit.target.set(VIEW_HOME.tx, VIEW_HOME.ty, VIEW_HOME.tz);
     orbit.update();
     setMessage('已切回总览视角');
   }
@@ -242,17 +294,19 @@ function onCanvasClick(ev) {
   );
   raycaster.setFromCamera(ndc, camera);
   // 坑 3：Raycaster 不跳过 visible=false 的对象，必须手动过滤隐藏楼层。
+  // 体块现在是一个 group（墙/招牌/光带/角标），所以要递归命中再逐级查父链，
+  // 并且只认 mesh——否则会点到「数据待补」角标那个 Sprite。
   const visible = [...storeMeshes.values()]
-    .filter(({ mesh }) => {
-      let o = mesh;
+    .filter(({ group }) => {
+      let o = group;
       while (o) {
         if (!o.visible) return false;
         o = o.parent;
       }
       return true;
     })
-    .map(({ mesh }) => mesh);
-  const hits = raycaster.intersectObjects(visible, false);
+    .map(({ group }) => group);
+  const hits = raycaster.intersectObjects(visible, true).filter((h) => h.object.isMesh);
   if (!hits.length) return;
   const store = hits[0].object.userData;
   const s = stores.find((x) => x.id === store.storeId);
@@ -272,6 +326,7 @@ async function init() {
   floors = loaded.floors;
   stores = loaded.stores;
   floorView = createFloorView(floors, scene);
+  shell = createShell(scene);
   buildStoreMeshes();
   guide = createGuide({
     scene, camera, controls: orbit, stores, floors, floorView, storeMeshes,

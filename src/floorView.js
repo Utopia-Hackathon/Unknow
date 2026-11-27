@@ -29,9 +29,15 @@ export function createFloorView(floors, scene) {
     scene.add(slab);
     slabs.set(f.id, slab);
 
+    // 走廊灯带：原来是亮青色，套上建筑外壳之后像一条荧光跑道，抢店铺招牌的视线。
+    // 改成暖光带，读作商场的走廊照明。
     const marker = new THREE.Mesh(
       new THREE.BoxGeometry(28, 0.05, 0.4),
-      new THREE.MeshStandardMaterial({ color: 0x38bdf8 })
+      new THREE.MeshStandardMaterial({
+        color: 0x3a3325,
+        emissive: 0xd9b46a,
+        emissiveIntensity: 0.38,
+      })
     );
     marker.position.set(0, f.y + 0.2, 9.5);
     scene.add(marker);
