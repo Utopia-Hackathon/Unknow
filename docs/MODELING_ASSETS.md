@@ -88,7 +88,7 @@
 - 32 个文件 `git mv` 为 `.webp`，**未重新编码**，像素与体积零变化（若转真 PNG，照片类内容体积会涨到 20–30 MB，得不偿失）。
 - 全仓库无任何代码引用这批图（`grep -rn izi src/ index.html` 无命中），改后缀无运行时风险。
 - `docs/` 内 16 处 `izi_XX.png` 引用同步改为 `.webp`。
-- **防复发**：新增 `scripts/check_asset_formats.py`（纯标准库，只读魔数，无需 PIL/ImageMagick）。本地跑 `python scripts/check_asset_formats.py`，发现「后缀与真实格式不符」或空文件即 `exit 1`。E-04 建 `.github/workflows` 时直接调它即可，不必另写校验逻辑。
+- **防复发**：资产校验已统一为 `scripts/check-assets.mjs`（E-04 CI 的 `assets` job 直接调用）。它除「后缀与真实格式不符 / 空文件」外，还查单文件体积、总体积与文件名 ASCII，覆盖面比最初的 Python 版更全；原 `scripts/check_asset_formats.py` 已删除以免两套逻辑各改各的。本地跑 `node scripts/check-assets.mjs` 即可。
 
 ### 2. 平面图：原仅 1F/2F 两张，现已补入 1F–8F
 

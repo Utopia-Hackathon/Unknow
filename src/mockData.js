@@ -45,8 +45,14 @@ export const CATALOG_NO_COORDS = [
 ];
 
 // 优先读 B 产出的 data/stores.json；不存在或格式不对时回退到占位数据。
+// __HAS_STORES_DATA__ 由 vite.config.js 在启动/构建时注入（见 define）：
+// 文件不在时直接跳过请求，避免线上留一条无法 catch 的 404。
+// 注意：dev 期间新增该文件需重启 dev server 才会生效。
 // 返回 { floors, stores, source: 'file' | 'mock' }。
 export async function loadStores() {
+  if (!__HAS_STORES_DATA__) {
+    return { floors: FLOORS, stores: STORES, source: 'mock' };
+  }
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}data/stores.json`);
     if (res.ok) {
