@@ -9,8 +9,10 @@ export const FLOORS = [
   { id: 'f8', name: '8F 欢聚', level: 8, y: 8 },
 ];
 
-// 10 个候选点位（示意坐标）。太二、曼玉已按 E28 修正为 f8（旧 mockData 误写 f7）。
+// 11 个点位（示意坐标）。太二、曼玉已按 E28 修正为 f8（旧 mockData 误写 f7）。
 // s02/s06/s08 只有 2018 年第三方楼层表作来源，标 unverified，现场确认前不得升级。
+// 注意：D011 §2 点位上限为 8–10 个，加 s11 后为 11 个，超 1 个——
+// B 出正式 stores.json 时须取舍（建议优先剔除无铺位号的 s02/s06/s08），此处先保证 6F 非空。
 export const STORES = [
   { id: 's01', name: '巴奴毛肚火锅', floor: 'f8', category: '火锅', x: -8, z: -6, entrance: { x: -8, z: -4.5 }, verified: 'public', source: 'E28' },
   { id: 's02', name: '凑凑火锅·茶憩', floor: 'f8', category: '火锅', x: 6, z: -6, entrance: { x: 6, z: -4.5 }, verified: 'unverified', source: 'E27', note: '无点位级铺位号，待现场核实' },
@@ -22,6 +24,10 @@ export const STORES = [
   { id: 's08', name: '上井精致日本料理', floor: 'f7', category: '日料', x: 8, z: 4, entrance: { x: 8, z: 5.5 }, verified: 'unverified', source: 'E27', note: '无点位级铺位号，待现场核实' },
   { id: 's09', name: '犇小喜鲜活火锅自助', floor: 'f7', category: '火锅自助', x: -5, z: 8, entrance: { x: -5, z: 9.5 }, verified: 'public', source: 'E26', note: '11-16 开业为宣传口径，存续待核' },
   { id: 's10', name: '麻布食堂 Azabu', floor: 'f7', category: '日料', x: 4, z: 8, entrance: { x: 4, z: 9.5 }, verified: 'public', source: 'E26' },
+  // 6F 唯一餐饮外业态（D011 §2 基准里的 6F CGV 影城）。楼层有多个公开来源确认，
+  // 方位为示意值；无门头照，按 D008 走 Canvas 文字招牌降级。
+  // source 尚未登记 E 编号（A 的台账），正式入库 data/stores.json 前须补登。
+  { id: 's11', name: 'CGV影城（正弘城IMAX店）', floor: 'f6', category: '影院', x: 0, z: -7, entrance: { x: 0, z: -5.5 }, verified: 'public', source: '公开来源：中原网 2023／猫眼（待 A 登记 E 编号）', note: '中原网写 F6、猫眼/点评写 6-7 层；方位示意' },
 ];
 
 // 公开资料里出现、但本期不建点位的品牌（D011 §4：未列入的不虚构坐标）。
