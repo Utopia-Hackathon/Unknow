@@ -6,6 +6,7 @@ import { loadStores, CATALOG_NO_COORDS } from './mockData.js';
 import { createFloorView } from './floorView.js';
 import { searchStores } from './search.js';
 import { createGuide } from './guide.js';
+import { createDashboard } from './dashboard.js';
 import { createPerfMonitor, pixelRatioFor } from './perf.js';
 import { createShopUnit } from './storefront.js';
 import { loadStorefront } from './texturePipeline.js';
@@ -502,7 +503,14 @@ async function init() {
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
+  // 动画循环由 perf 分支改成 rAF 首帧驱动（ts 传给 perf.frame），保留这个版本
   requestAnimationFrame(animate);
+
+  // F02/F03 看板：先用合成事件跑通界面，D 的 world 交上来后调 dashboard.bindWorld(world) 即可
+  const dashboard = createDashboard({ root: document.getElementById('dashboard'), stores });
+  document.getElementById('dash-btn')?.addEventListener('click', () => dashboard.open());
+  window.__dashboard = dashboard; // 调试/联调入口：window.__dashboard.bindWorld(world)
+
   setMessage('点击店铺查看详情；搜索店名生成导览路径', 'ok');
 }
 
