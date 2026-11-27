@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>正弘城 3D 导览</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%230f172a'/><path d='M4 11V5l4 4 4-4v6' stroke='%2338bdf8' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
@@ -14,6 +15,7 @@
         <h1 class="title">正弘城 3D 数智商圈</h1>
         <span class="subtitle">商场内 3D 导览地图</span>
         <span class="badge" id="data-badge"></span>
+        <button id="dash-btn" type="button" class="dash-btn">经营看板</button>
       </header>
 
       <nav class="floorbar" id="floor-bar" aria-label="楼层选择"></nav>
@@ -34,6 +36,8 @@
       <div class="hud-panel" id="panel">
         <p class="dim">点击场景中的店铺查看详情</p>
       </div>
+
+      <aside id="dashboard" class="dash-root" aria-label="经营决策看板"></aside>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
