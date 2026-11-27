@@ -7,17 +7,27 @@ import { createFloorView } from './floorView.js';
 import { searchStores } from './search.js';
 import { createGuide } from './guide.js';
 import { createDashboard } from './dashboard.js';
+import { createPerfMonitor, pixelRatioFor } from './perf.js';
+import { createShopUnit } from './storefront.js';
+import { loadStorefront } from './texturePipeline.js';
+import { createShell } from './shell.js';
+import { BACKDROP, isOnSlab, ringSlots, makeSlotAt } from './floorPlan.js';
+import { buildVerticals } from './backgroundShops.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(pixelRatioFor(0));
 
 const scene = buildScene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
-camera.position.set(20, 18, 24);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 600);
+// 总览默认机位：楼层按导览牌改成 47×43 的环形板、外壳 56×52 之后要退到 ~64m，
+// 原来的 (20,18,24) 连一层楼都框不下。
+// 抬高俯角：店铺一律面朝中庭，机位太低就只看见一圈后背。
+const VIEW_HOME = { x: 30, y: 46, z: 40, tx: 0, ty: -2, tz: 0 };
+camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
 
 const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.target.set(0, 4, 0);
+orbit.target.set(VIEW_HOME.tx, VIEW_HOME.ty, VIEW_HOME.tz);
 orbit.enableDamping = true;
 
 const pointer = new PointerLockControls(camera, renderer.domElement);
@@ -36,13 +46,37 @@ const ui = {
 
 let floors = [];
 let stores = [];
+let dataSource = 'mock'; // 'mock' 占位 / 'file' B 的实测数据
 let floorView;
+let shell;
 let guide;
 let storeMeshes = new Map();
 let viewMode = 'orbit';
 let stepMode = false;
 let startStoreId = null;
 const keys = new Set();
+
+// 帧率监控（Issue #19 / E-03）。默认不显示 HUD，答辩画面里不能出现调试面板；
+// 验收时用 ?debug=1 打开，控制台有 window.__perf.stats() / dump() 可落盘 JSON。
+const perf = createPerfMonitor({
+  debug: new URLSearchParams(location.search).has('debug'),
+  onLevelChange: (levelIndex) => applyQuality(levelIndex),
+});
+
+// 降档只降画质，不降交互：像素比先降，L2 再让场景侧关掉次要细节。
+function applyQuality(levelIndex) {
+  renderer.setPixelRatio(pixelRatioFor(levelIndex));
+  const w = canvas.clientWidth || window.innerWidth;
+  const h = canvas.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  // floorView / shell 在 init() 里才创建；降档可能在它之前触发，用可选调用。
+  if (levelIndex >= 2) {
+    if (typeof floorView?.setDetailLevel === 'function') floorView.setDetailLevel(2);
+    if (typeof shell?.setDetailLevel === 'function') shell.setDetailLevel(2);
+  }
+}
 
 function resize() {
   const w = canvas.clientWidth || window.innerWidth;
@@ -60,18 +94,139 @@ function setMessage(text, kind = 'info') {
   ui.panel.innerHTML = text;
 }
 
-function buildStoreMeshes() {
-  for (const entry of storeMeshes.values()) scene.remove(entry.mesh);
+// 铺位生成（D008 + 导览牌结构）。
+//
+// 真实商场的铺位是沿走廊切出来的：面宽随楼层轮廓变化、临街面常常是斜的、
+// 进深各不相同。所以不用统一方盒子，而是用 floorPlan.ringSlots() 沿外轮廓
+// 切出 26 块铺位，核心点位吸附到最近的槽位，背景铺位吃剩下的。
+const SLOT_COUNT = 26;
+const SLOT_DEPTH = 5.5;
+const MAX_BACKDROP = 12; // D011 §3 上限
+const BACKDROP_COLORS = [0x3f4757, 0x464e5f, 0x3a4251, 0x4a5263, 0x424a5a];
+
+function clearShops() {
+  for (const entry of storeMeshes.values()) {
+    entry.group.parent?.remove(entry.group);
+    entry.group.traverse((o) => {
+      if (o.isMesh) {
+        o.geometry?.dispose();
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
+        else o.material?.dispose();
+      }
+    });
+  }
   storeMeshes = new Map();
+}
+
+function buildShops() {
+  clearShops();
+  const coreNames = stores.map((s) => s.name);
+
+  for (const f of floors) {
+    const top = floorView.getFloorTop(f.id);
+    const group = floorView.getGroup(f.id);
+    const slots = ringSlots(SLOT_COUNT, SLOT_DEPTH);
+    const taken = new Set();
+
+    // 1) 核心点位
+    // 占位数据（mock）才吸附到槽位——那些坐标本来就是示意值。
+    // B 交的实测数据（file）是权威：**绝不改写 x/z/entrance**，
+    // 反过来让铺位几何去迁就实测坐标（makeSlotAt）。
+    const snapToSlots = dataSource === 'mock';
+    for (const s of stores.filter((x) => x.floor === f.id)) {
+      let slot;
+      if (snapToSlots) {
+        let bestIdx = -1;
+        let bestD = Infinity;
+        slots.forEach((candidate, i) => {
+          if (taken.has(i)) return;
+          const d = Math.hypot(candidate.cx - s.x, candidate.cz - s.z);
+          if (d < bestD) { bestD = d; bestIdx = i; }
+        });
+        if (bestIdx < 0) continue;
+        taken.add(bestIdx);
+        slot = slots[bestIdx];
+        s.x = slot.cx;
+        s.z = slot.cz;
+        s.entrance = { x: slot.face.x, z: slot.face.z };
+      } else {
+        // 实测坐标必须落在楼板上、且不在中庭洞里；否则宁可跳过，也不补一个假坐标
+        if (!isOnSlab(s.x, s.z, 0.4)) {
+          console.warn(`[stores] ${s.id}「${s.name}」(${s.x}, ${s.z}) 落在楼板外或中庭洞里，已跳过，请现场复核`);
+          continue;
+        }
+        let refIdx = 0;
+        let refD = Infinity;
+        slots.forEach((candidate, i) => {
+          const d = Math.hypot(candidate.cx - s.x, candidate.cz - s.z);
+          if (d < refD) { refD = d; refIdx = i; }
+        });
+        taken.add(refIdx);
+        slot = makeSlotAt(s.x, s.z, slots[refIdx], SLOT_DEPTH);
+        // entrance 是实测门口坐标，保持原样；只提醒和几何正面差太远的情况
+        const faceGap = Math.hypot(s.entrance.x - slot.face.x, s.entrance.z - slot.face.z);
+        if (faceGap > 4) {
+          console.warn(`[stores] ${s.id}「${s.name}」entrance 距门脸 ${faceGap.toFixed(1)}m，请核对方向`);
+        }
+      }
+
+      const unit = createShopUnit({
+        storeId: s.id, name: s.name, category: s.category,
+        floorLabel: f.name, floorId: f.id,
+        poly: slot.poly, face: slot.face, rotY: slot.rotY,
+      });
+      unit.group.position.y = top;
+      group.add(unit.group);
+      storeMeshes.set(s.id, unit);
+    }
+
+    // 2) 背景铺位：剩余槽位里均匀抽（D011 §3）
+    const names = (BACKDROP[f.id] || []).filter(
+      (n) => !coreNames.some((cn) => cn.includes(n) || n.includes(cn))
+    );
+    const free = [...slots.keys()].filter((i) => !taken.has(i));
+    const want = Math.min(names.length, MAX_BACKDROP, free.length);
+    for (let i = 0; i < want; i++) {
+      const slot = slots[free[Math.floor((i * free.length) / want)]];
+      const unit = createShopUnit({
+        name: names[i], floorLabel: f.name, floorId: f.id,
+        poly: slot.poly, face: slot.face, rotY: slot.rotY,
+        color: BACKDROP_COLORS[i % BACKDROP_COLORS.length],
+        interactive: false,
+      });
+      unit.group.position.y = top;
+      group.add(unit.group);
+    }
+
+    // 3) 空槽位填成连续墙面：真实商场的铺位界面是连着的，
+    //    隔一段空一段会像「一排展台」而不是「一圈商铺」。这些墙没有招牌、
+    //    没有店名，不算背景铺位（D011 §3 的 8–12 个上限不受影响）。
+    const usedIdx = new Set([...taken]);
+    const pickedIdx = new Set();
+    for (let i = 0; i < want; i++) pickedIdx.add(free[Math.floor((i * free.length) / want)]);
+    for (const idx of slots.keys()) {
+      if (usedIdx.has(idx) || pickedIdx.has(idx)) continue;
+      const slot = slots[idx];
+      const fill = createShopUnit({
+        name: '', floorLabel: f.name, floorId: f.id,
+        poly: slot.poly, face: slot.face, rotY: slot.rotY,
+        color: 0x333a48, interactive: false, withSign: false,
+      });
+      fill.group.position.y = top;
+      group.add(fill.group);
+    }
+
+    // 4) 垂直交通
+    buildVerticals({ floorLabel: f.name, floorTop: top, group });
+  }
+
+  // 贴图按表加载（texturePipeline.TEXTURES）。表里没有 = 保持文字招牌，
+  // 这是 11-29 采集前的正常状态，不是失败。
   for (const s of stores) {
-    const floor = floors.find((f) => f.id === s.floor);
-    if (!floor) continue;
-    const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), mat);
-    mesh.position.set(s.x, floor.y + 0.3 + 0.8, s.z);
-    mesh.userData = { storeId: s.id, name: s.name, floorId: s.floor };
-    floorView.getGroup(s.floor).add(mesh);
-    storeMeshes.set(s.id, { mesh, mat });
+    loadStorefront(s.id).then((tex) => {
+      if (!tex) return;
+      storeMeshes.get(s.id)?.setVisual({ texture: tex });
+    });
   }
 }
 
@@ -79,6 +234,31 @@ function highlightFloorButton(floorId) {
   if (!ui.floorBar) return;
   [...ui.floorBar.querySelectorAll('button')]
     .forEach((b) => b.classList.toggle('active', b.dataset.floor === floorId));
+}
+
+// 切层时相机跟着楼层走（A01：保留水平视角、只挪高度）。
+// 原来切层只是改可见性，镜头还停在整栋楼外面，切到 8F 看到的是一块远处的小板。
+function focusFloor(floorId) {
+  if (viewMode !== 'orbit') return; // 第一人称由玩家自己走，不抢镜头
+  if (floorId === 'all') {
+    shell?.setRoofVisible(true);
+    camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
+    orbit.target.set(VIEW_HOME.tx, VIEW_HOME.ty, VIEW_HOME.tz);
+    orbit.update();
+    return;
+  }
+  const top = floorView.getFloorTop(floorId);
+  if (typeof top !== 'number') return;
+  // 到该层上方斜看。楼板 47×43，站太远招牌就只剩几个像素——
+  // 这个距离下大约能看清半个环，正好是「站在中庭边上看一层」的观感。
+  shell?.setRoofVisible(false);
+  // 距离 ~26m：能看清半圈铺位和店名，又不至于被前景一堵墙挡住。
+  // 再远一点（40m）招牌就只剩几十像素，等于白建。
+  // 站在中庭南侧上方朝北看：前景是中庭洞（空的），对面一整排铺位的正面进画面。
+  // 机位放到环外的话，最近的那排铺位会变成一堵墙挡住全部。
+  camera.position.set(5, top + 10, 10);
+  orbit.target.set(5, top + 1.2, -9);
+  orbit.update();
 }
 
 function renderFloorBar() {
@@ -94,6 +274,7 @@ function renderFloorBar() {
       floorView.setFloor(f.id);
       guide.setVisibleFloor(f.id);
       highlightFloorButton(f.id);
+      focusFloor(f.id);
       setMessage(f.id === 'all' ? '全部楼层（半透明楼板）' : `已切到 ${f.name}`);
     });
     ui.floorBar.appendChild(btn);
@@ -156,8 +337,8 @@ function setViewMode(mode) {
   } else {
     pointer.unlock();
     orbit.enabled = true;
-    camera.position.set(20, 18, 24);
-    orbit.target.set(0, 4, 0);
+    camera.position.set(VIEW_HOME.x, VIEW_HOME.y, VIEW_HOME.z);
+    orbit.target.set(VIEW_HOME.tx, VIEW_HOME.ty, VIEW_HOME.tz);
     orbit.update();
     setMessage('已切回总览视角');
   }
@@ -176,6 +357,30 @@ function bindUI() {
     setMessage(stepMode ? '讲解模式已开：路径分段暂停，点「下一步」继续' : '讲解模式已关：连续自动走');
   });
   ui.nextBtn?.addEventListener('click', () => guide.nextStep());
+
+  // 用户一动手就把镜头控制权交还给他。
+  // 自动漫游每帧覆盖 camera.position，不中断的话拖拽和滚轮全被盖掉——
+  // 表现就是「点完一家店之后画面动不了」。
+  canvas.addEventListener('mousedown', () => guide?.cancelAnimation());
+  canvas.addEventListener('wheel', () => guide?.cancelAnimation(), { passive: true });
+
+  // Esc：中断漫游 + 退回总览。给用户一条明确的退出路径，
+  // 免得飞近之后不知道该点哪儿才能恢复。
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    guide?.cancelAnimation();
+    if (viewMode === 'firstPerson') {
+      setViewMode('orbit');
+      return;
+    }
+    if (floorView.getFloor() !== 'all') {
+      floorView.setFloor('all');
+      guide.setVisibleFloor('all');
+      highlightFloorButton('all');
+      focusFloor('all');
+      setMessage('已回到总览（Esc）');
+    }
+  });
   pointer.addEventListener('unlock', () => {
     if (viewMode === 'firstPerson') setViewMode('orbit');
   });
@@ -199,9 +404,20 @@ function updateFirstPerson(dt) {
   if (keys.has('KeyA')) move.sub(right);
   if (move.lengthSq() === 0) return;
   move.normalize().multiplyScalar(speed);
-  camera.position.add(move);
-  camera.position.x = THREE.MathUtils.clamp(camera.position.x, -13, 13);
-  camera.position.z = THREE.MathUtils.clamp(camera.position.z, -9, 9);
+
+  // 楼板现在是环形的、中间有中庭洞，不能再靠矩形 clamp ——
+  // 那样人会直接走进中庭掉下去。按 floorPlan 的真实轮廓判断，
+  // 并且分轴试探：贴着墙走的时候还能沿着墙滑动，不会一下卡死。
+  const nx = camera.position.x + move.x;
+  const nz = camera.position.z + move.z;
+  if (isOnSlab(nx, nz, 0.9)) {
+    camera.position.x = nx;
+    camera.position.z = nz;
+  } else {
+    if (isOnSlab(nx, camera.position.z, 0.9)) camera.position.x = nx;
+    if (isOnSlab(camera.position.x, nz, 0.9)) camera.position.z = nz;
+  }
+
   const currentFloor = floorView.getFloor();
   const baseId = currentFloor === 'all' ? floors[0]?.id : currentFloor;
   const top = floorView.getFloorTop(baseId);
@@ -209,7 +425,15 @@ function updateFirstPerson(dt) {
 }
 
 const raycaster = new THREE.Raycaster();
+// 拖动旋转松手时浏览器也会补一个 click，不区分的话会误触发「跳到这家店」。
+// 记下按下位置，移动超过 6px 就当拖拽，不当作点击。
+let downPoint = null;
+canvas.addEventListener('pointerdown', (ev) => {
+  downPoint = { x: ev.clientX, y: ev.clientY };
+});
+
 function onCanvasClick(ev) {
+  if (downPoint && Math.hypot(ev.clientX - downPoint.x, ev.clientY - downPoint.y) > 6) return;
   if (viewMode === 'firstPerson') {
     if (!pointer.isLocked) pointer.lock();
     return;
@@ -221,17 +445,19 @@ function onCanvasClick(ev) {
   );
   raycaster.setFromCamera(ndc, camera);
   // 坑 3：Raycaster 不跳过 visible=false 的对象，必须手动过滤隐藏楼层。
+  // 体块现在是一个 group（墙/招牌/光带/角标），所以要递归命中再逐级查父链，
+  // 并且只认 mesh——否则会点到「数据待补」角标那个 Sprite。
   const visible = [...storeMeshes.values()]
-    .filter(({ mesh }) => {
-      let o = mesh;
+    .filter(({ group }) => {
+      let o = group;
       while (o) {
         if (!o.visible) return false;
         o = o.parent;
       }
       return true;
     })
-    .map(({ mesh }) => mesh);
-  const hits = raycaster.intersectObjects(visible, false);
+    .map(({ group }) => group);
+  const hits = raycaster.intersectObjects(visible, true).filter((h) => h.object.isMesh);
   if (!hits.length) return;
   const store = hits[0].object.userData;
   const s = stores.find((x) => x.id === store.storeId);
@@ -250,8 +476,10 @@ async function init() {
   const loaded = await loadStores();
   floors = loaded.floors;
   stores = loaded.stores;
+  dataSource = loaded.source;
   floorView = createFloorView(floors, scene);
-  buildStoreMeshes();
+  shell = createShell(scene);
+  buildShops();
   guide = createGuide({
     scene, camera, controls: orbit, stores, floors, floorView, storeMeshes,
     onStep: (node, i, total) => setMessage(`导览进度 ${i + 1}/${total}（讲解模式，点「下一步」继续）`),
@@ -266,15 +494,18 @@ async function init() {
       : '点位：占位示意值（待 B 现场核实）';
   }
   const clock = new THREE.Clock();
-  function animate() {
+  function animate(ts) {
     const dt = Math.min(clock.getDelta(), 0.05);
+    perf.frame(ts);
     updateFirstPerson(dt);
     guide.update(dt);
     if (viewMode === 'orbit') orbit.update();
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
-  animate();
+  // 动画循环由 perf 分支改成 rAF 首帧驱动（ts 传给 perf.frame），保留这个版本
+  requestAnimationFrame(animate);
+
   // F02/F03 看板：先用合成事件跑通界面，D 的 world 交上来后调 dashboard.bindWorld(world) 即可
   const dashboard = createDashboard({ root: document.getElementById('dashboard'), stores });
   document.getElementById('dash-btn')?.addEventListener('click', () => dashboard.open());

@@ -117,7 +117,7 @@
 1. **优先用 C 实拍导览牌** `floor-guide-6f/7f/8f.jpg` 读铺位号与店名（见下节）；
 2. **主力店位置**用导览牌位置 + 门头照片交叉定位（腾讯新闻已给 7–8F 等位最密）；
 3. 导览牌是**斜角翻拍**，有反光与透视变形：铺位号可读，但**坐标不能直接量取**，须按柱网、中庭、扶梯位置校正；
-4. 每个点位在 JSON 里标 `verified: "field-photo"`（导览牌实拍）或 `unverified`（仅文字来源），UI 显示依据级别；
+4. 每个点位在 JSON 里标 `verified: "observed"`（现场拍到门头并确认位置）或 `public` / `unverified`（见 `CONTRACTS.md` §二三级定义），UI 显示依据级别。注意：契约只有 `observed` / `public` / `unverified` 三级，旧稿里的 `field-photo` 不是合法值，`scripts/check-stores.mjs` 会判非法；
 5. **不得**把校正后的估算坐标写成实采坐标——这是当前代码里已经犯过的错（太二写成 7F 实为 8F、喜茶写成 6F 实为 1F）。
 
 ### 5. C 实拍楼层导览牌（2026-11-26 补入）

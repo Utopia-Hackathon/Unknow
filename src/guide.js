@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isOnSlab } from './floorPlan.js';
 
 // 导览：高亮 + 地面光圈 + L 形路径 + 相机插值移动（D007 / 契约 §四）。
 // 三种推进方式并存：连续自动走（默认）、逐点确认（讲解开关）、点击门店跳转（常驻，不依赖寻路）。
@@ -35,7 +36,9 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
   function unhighlight() {
     if (!highlighted) return;
     const entry = storeMeshes.get(highlighted);
-    if (entry?.mat) {
+    if (entry?.setHighlight) {
+      entry.setHighlight(false);
+    } else if (entry?.mat) {
       entry.mat.emissive?.setHex(0x000000);
       entry.mat.emissiveIntensity = 1;
     }
@@ -47,7 +50,9 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
     const s = storeById.get(storeId);
     const entry = storeMeshes.get(storeId);
     if (!s || !entry) return false;
-    if (entry.mat?.emissive) {
+    if (entry.setHighlight) {
+      entry.setHighlight(true);
+    } else if (entry.mat?.emissive) {
       entry.mat.emissive.setHex(0xf59e0b);
       entry.mat.emissiveIntensity = 0.65;
     }
@@ -141,16 +146,28 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
     highlightStore(storeId);
     const top = floorView.getFloorTop(s.floor);
 
-    // 从店铺指向门口的方向，再往外退 4.5m 作为相机站位；视线对准店铺门头。
+    // 从店铺指向门口的方向，再往外退几步作为相机站位；视线对准门头招牌。
+    // 门脸体块 4×3×3（C-01）比原来的 1.6³ 方块大得多，退到 5.5m 才框得下，
+    // 视线抬到 1.5m 让招牌进画面——只看门板不看店名，等于白飞。
     const dx = s.entrance.x - s.x;
     const dz = s.entrance.z - s.z;
     const len = Math.hypot(dx, dz) || 1;
-    const stand = 4.5;
+    // 铺位进深 5.5m、面宽最多 7m，退 7m 才框得下整间店面。
+    // 但落点必须站在楼板上：朝中庭退 7m 有可能落到中庭洞上方，
+    // 那样镜头悬空、画面全是下面几层的黑，用户会以为卡死了。逐步收回直到站得住。
+    let stand = 7.0;
+    let px = 0;
+    let pz = 0;
+    for (; stand >= 2.4; stand -= 0.6) {
+      px = s.entrance.x + (dx / len) * stand;
+      pz = s.entrance.z + (dz / len) * stand;
+      if (isOnSlab(px, pz, 0.6)) break;
+    }
     const target = {
-      x: s.entrance.x + (dx / len) * stand,
+      x: px,
       y: top + 1.7,
-      z: s.entrance.z + (dz / len) * stand,
-      lookAt: { x: s.x, y: top + 1.1, z: s.z },
+      z: pz,
+      lookAt: { x: s.x, y: top + 1.5, z: s.z },
     };
     animation = {
       waypoints: [target], index: 0, t: 0, stepMode: false, paused: false, onDone: null,
@@ -177,6 +194,16 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
     animation = null;
     clearOverlay();
     unhighlight();
+  }
+
+  // 中断相机动画，但保留高亮与路径。
+  // 用户在漫游途中拖一下鼠标，就不该被镜头拽着走——
+  // 一操作就交还控制权，这是「点完店铺动不了」的根因：
+  // 动画每帧覆盖 camera.position，用户拖拽被立刻盖掉。
+  function cancelAnimation() {
+    if (!animation) return false;
+    animation = null;
+    return true;
   }
 
   // 每帧推进；返回是否仍处于动画中。
@@ -236,6 +263,7 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
     nextStep,
     setVisibleFloor,
     stop,
+    cancelAnimation,
     update,
     clearOverlay,
     isAnimating: () => !!animation,
