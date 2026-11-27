@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { buildScene, buildFloorsAndStores } from './scene.js';
-import { FLOORS, STORES } from './mockData.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { buildScene } from './scene.js';
+import { loadStores, CATALOG_NO_COORDS } from './mockData.js';
+import { createFloorView } from './floorView.js';
+import { searchStores } from './search.js';
+import { createGuide } from './guide.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -11,11 +15,33 @@ const scene = buildScene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
 camera.position.set(20, 18, 24);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 4, 0);
-controls.enableDamping = true;
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target.set(0, 4, 0);
+orbit.enableDamping = true;
 
-buildFloorsAndStores(scene, FLOORS, STORES);
+const pointer = new PointerLockControls(camera, renderer.domElement);
+
+const ui = {
+  floorBar: document.getElementById('floor-bar'),
+  searchInput: document.getElementById('search-input'),
+  searchBtn: document.getElementById('search-btn'),
+  results: document.getElementById('results'),
+  panel: document.getElementById('panel'),
+  viewBtn: document.getElementById('view-btn'),
+  stepBtn: document.getElementById('step-btn'),
+  nextBtn: document.getElementById('next-btn'),
+  dataBadge: document.getElementById('data-badge'),
+};
+
+let floors = [];
+let stores = [];
+let floorView;
+let guide;
+let storeMeshes = new Map();
+let viewMode = 'orbit';
+let stepMode = false;
+let startStoreId = null;
+const keys = new Set();
 
 function resize() {
   const w = canvas.clientWidth || window.innerWidth;
@@ -27,31 +53,228 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-function animate() {
-  controls.update();
-  renderer.render(scene, camera);
-  requestAnimationFrame(animate);
+function setMessage(text, kind = 'info') {
+  if (!ui.panel) return;
+  ui.panel.className = `hud-panel ${kind}`;
+  ui.panel.innerHTML = text;
 }
-animate();
 
-// 点击店铺点位：射线检测 + 显示详情（F01 导览：找店）
-const panel = document.getElementById('panel');
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-
-canvas.addEventListener('click', (ev) => {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(
-    scene.children.filter((o) => o.userData && o.userData.storeId)
-  );
-  if (hits.length > 0) {
-    const store = hits[0].object.userData;
-    const data = STORES.find((s) => s.id === store.storeId);
-    const floor = FLOORS.find((f) => f.id === data.floor);
-    panel.innerHTML = `<strong>${store.name}</strong><br/>${floor.name} · ${data.type}`;
+function buildStoreMeshes() {
+  for (const entry of storeMeshes.values()) scene.remove(entry.mesh);
+  storeMeshes = new Map();
+  for (const s of stores) {
+    const floor = floors.find((f) => f.id === s.floor);
+    if (!floor) continue;
+    const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), mat);
+    mesh.position.set(s.x, floor.y + 0.3 + 0.8, s.z);
+    mesh.userData = { storeId: s.id, name: s.name, floorId: s.floor };
+    floorView.getGroup(s.floor).add(mesh);
+    storeMeshes.set(s.id, { mesh, mat });
   }
-});
+}
+
+function highlightFloorButton(floorId) {
+  if (!ui.floorBar) return;
+  [...ui.floorBar.querySelectorAll('button')]
+    .forEach((b) => b.classList.toggle('active', b.dataset.floor === floorId));
+}
+
+function renderFloorBar() {
+  if (!ui.floorBar) return;
+  ui.floorBar.innerHTML = '';
+  const opts = [{ id: 'all', name: '全部' }, ...floors];
+  for (const f of opts) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = f.name;
+    btn.dataset.floor = f.id;
+    btn.addEventListener('click', () => {
+      floorView.setFloor(f.id);
+      guide.setVisibleFloor(f.id);
+      highlightFloorButton(f.id);
+      setMessage(f.id === 'all' ? '全部楼层（半透明楼板）' : `已切到 ${f.name}`);
+    });
+    ui.floorBar.appendChild(btn);
+  }
+  highlightFloorButton('all');
+}
+
+function showResult(result) {
+  if (!ui.results) return;
+  ui.results.innerHTML = '';
+  if (result.status === 'found') {
+    for (const s of result.matches) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'result-item';
+      btn.textContent = `${s.name} · ${floors.find((f) => f.id === s.floor)?.name || s.floor}`;
+      btn.addEventListener('click', () => {
+        guide.highlightStore(s.id);
+        if (startStoreId && startStoreId !== s.id) {
+          const ok = guide.guideTo(startStoreId, s.id, { stepMode });
+          if (ok) {
+            setMessage(`从「${stores.find((x) => x.id === startStoreId)?.name}」前往「${s.name}」${stepMode ? '（讲解模式：点下一步继续）' : ''}`);
+          }
+        } else {
+          const ok = guide.flyToStore(s.id);
+          setMessage(ok ? `镜头飞近「${s.name}」门口` : `「${s.name}」缺少 entrance 坐标，数据待补`);
+        }
+        startStoreId = s.id;
+      });
+      ui.results.appendChild(btn);
+    }
+    setMessage(result.message, 'ok');
+  } else if (result.status === 'noCoords') {
+    const c = result.matches[0];
+    setMessage(`<strong>数据待补</strong><br/>${c.note}<br/><span class="dim">来源：${c.source}；未虚构点位坐标</span>`, 'warn');
+  } else if (result.status === 'notFound') {
+    setMessage(result.message, 'warn');
+  } else {
+    setMessage(result.message);
+  }
+}
+
+function doSearch() {
+  const q = ui.searchInput?.value || '';
+  showResult(searchStores(q, stores, CATALOG_NO_COORDS, floors));
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  if (mode === 'firstPerson') {
+    orbit.enabled = false;
+    // 从当前所在层进入；「全部」视图时落到最底层，避免站到半空。
+    const cur = floorView.getFloor();
+    const baseId = cur === 'all' ? floors[0]?.id : cur;
+    const top = floorView.getFloorTop(baseId);
+    camera.position.set(0, (typeof top === 'number' ? top : 4) + 1.6, 8);
+    // 不自动 lock：一旦锁定鼠标，UI 按钮全部点不到（只能 Esc）。
+    // 改为点画面才锁，保证「下一步 / 讲解模式」等按钮随时可用。
+    setMessage('第一人称：<strong>点击画面</strong>锁定鼠标漫游，WASD 移动，Esc 退出', 'ok');
+  } else {
+    pointer.unlock();
+    orbit.enabled = true;
+    camera.position.set(20, 18, 24);
+    orbit.target.set(0, 4, 0);
+    orbit.update();
+    setMessage('已切回总览视角');
+  }
+  if (ui.viewBtn) ui.viewBtn.textContent = mode === 'orbit' ? '切换到第一人称' : '切换到总览';
+}
+
+function bindUI() {
+  ui.searchBtn?.addEventListener('click', doSearch);
+  ui.searchInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSearch();
+  });
+  ui.viewBtn?.addEventListener('click', () => setViewMode(viewMode === 'orbit' ? 'firstPerson' : 'orbit'));
+  ui.stepBtn?.addEventListener('click', () => {
+    stepMode = !stepMode;
+    if (ui.stepBtn) ui.stepBtn.textContent = stepMode ? '讲解模式：开' : '讲解模式：关';
+    setMessage(stepMode ? '讲解模式已开：路径分段暂停，点「下一步」继续' : '讲解模式已关：连续自动走');
+  });
+  ui.nextBtn?.addEventListener('click', () => guide.nextStep());
+  pointer.addEventListener('unlock', () => {
+    if (viewMode === 'firstPerson') setViewMode('orbit');
+  });
+  window.addEventListener('keydown', (e) => keys.add(e.code));
+  window.addEventListener('keyup', (e) => keys.delete(e.code));
+}
+
+// 第一人称移动：贴地、限制在楼板范围内，不穿墙、不掉出楼板。
+function updateFirstPerson(dt) {
+  if (viewMode !== 'firstPerson') return;
+  const speed = 6 * dt;
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0;
+  forward.normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+  const move = new THREE.Vector3();
+  if (keys.has('KeyW')) move.add(forward);
+  if (keys.has('KeyS')) move.sub(forward);
+  if (keys.has('KeyD')) move.add(right);
+  if (keys.has('KeyA')) move.sub(right);
+  if (move.lengthSq() === 0) return;
+  move.normalize().multiplyScalar(speed);
+  camera.position.add(move);
+  camera.position.x = THREE.MathUtils.clamp(camera.position.x, -13, 13);
+  camera.position.z = THREE.MathUtils.clamp(camera.position.z, -9, 9);
+  const currentFloor = floorView.getFloor();
+  const baseId = currentFloor === 'all' ? floors[0]?.id : currentFloor;
+  const top = floorView.getFloorTop(baseId);
+  if (typeof top === 'number') camera.position.y = top + 1.6;
+}
+
+const raycaster = new THREE.Raycaster();
+function onCanvasClick(ev) {
+  if (viewMode === 'firstPerson') {
+    if (!pointer.isLocked) pointer.lock();
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+    -((ev.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  // 坑 3：Raycaster 不跳过 visible=false 的对象，必须手动过滤隐藏楼层。
+  const visible = [...storeMeshes.values()]
+    .filter(({ mesh }) => {
+      let o = mesh;
+      while (o) {
+        if (!o.visible) return false;
+        o = o.parent;
+      }
+      return true;
+    })
+    .map(({ mesh }) => mesh);
+  const hits = raycaster.intersectObjects(visible, false);
+  if (!hits.length) return;
+  const store = hits[0].object.userData;
+  const s = stores.find((x) => x.id === store.storeId);
+  if (!s) return;
+  guide.highlightStore(s.id);
+  startStoreId = s.id;
+  if (!s.entrance) {
+    setMessage(`<strong>${s.name}</strong><br/>缺少 entrance 坐标，点击跳转不可用（数据待补）`, 'warn');
+  } else {
+    guide.flyToStore(s.id);
+    setMessage(`<strong>${s.name}</strong><br/>${floors.find((f) => f.id === s.floor)?.name || ''} · ${s.category || ''}<br/><span class="dim">来源 ${s.source} · ${s.verified}</span>`);
+  }
+}
+
+async function init() {
+  const loaded = await loadStores();
+  floors = loaded.floors;
+  stores = loaded.stores;
+  floorView = createFloorView(floors, scene);
+  buildStoreMeshes();
+  guide = createGuide({
+    scene, camera, controls: orbit, stores, floors, floorView, storeMeshes,
+    onStep: (node, i, total) => setMessage(`导览进度 ${i + 1}/${total}（讲解模式，点「下一步」继续）`),
+    onFloorChange: (id) => highlightFloorButton(id),
+  });
+  renderFloorBar();
+  bindUI();
+  canvas.addEventListener('click', onCanvasClick);
+  if (ui.dataBadge) {
+    ui.dataBadge.textContent = loaded.source === 'file'
+      ? '点位：data/stores.json'
+      : '点位：占位示意值（待 B 现场核实）';
+  }
+  const clock = new THREE.Clock();
+  function animate() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    updateFirstPerson(dt);
+    guide.update(dt);
+    if (viewMode === 'orbit') orbit.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  animate();
+  setMessage('点击店铺查看详情；搜索店名生成导览路径', 'ok');
+}
+
+init();
