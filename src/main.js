@@ -10,7 +10,7 @@ import { createPerfMonitor, pixelRatioFor } from './perf.js';
 import { createShopUnit } from './storefront.js';
 import { loadStorefront } from './texturePipeline.js';
 import { createShell } from './shell.js';
-import { BACKDROP, isOnSlab, ringSlots } from './floorPlan.js';
+import { BACKDROP, isOnSlab, ringSlots, makeSlotAt } from './floorPlan.js';
 import { buildVerticals } from './backgroundShops.js';
 
 const canvas = document.getElementById('scene');
@@ -45,6 +45,7 @@ const ui = {
 
 let floors = [];
 let stores = [];
+let dataSource = 'mock'; // 'mock' 占位 / 'file' B 的实测数据
 let floorView;
 let shell;
 let guide;
@@ -126,24 +127,47 @@ function buildShops() {
     const slots = ringSlots(SLOT_COUNT, SLOT_DEPTH);
     const taken = new Set();
 
-    // 1) 核心点位：吸附到最近的空槽位
+    // 1) 核心点位
+    // 占位数据（mock）才吸附到槽位——那些坐标本来就是示意值。
+    // B 交的实测数据（file）是权威：**绝不改写 x/z/entrance**，
+    // 反过来让铺位几何去迁就实测坐标（makeSlotAt）。
+    const snapToSlots = dataSource === 'mock';
     for (const s of stores.filter((x) => x.floor === f.id)) {
-      let bestIdx = -1;
-      let bestD = Infinity;
-      slots.forEach((slot, i) => {
-        if (taken.has(i)) return;
-        const d = Math.hypot(slot.cx - s.x, slot.cz - s.z);
-        if (d < bestD) { bestD = d; bestIdx = i; }
-      });
-      if (bestIdx < 0) continue;
-      taken.add(bestIdx);
-      const slot = slots[bestIdx];
-
-      // 坐标吸附到实际铺位：光圈、路径、飞近落点都跟着几何走，
-      // 否则会出现「店在这块地，光圈画在旁边」的错位。
-      s.x = slot.cx;
-      s.z = slot.cz;
-      s.entrance = { x: slot.face.x, z: slot.face.z };
+      let slot;
+      if (snapToSlots) {
+        let bestIdx = -1;
+        let bestD = Infinity;
+        slots.forEach((candidate, i) => {
+          if (taken.has(i)) return;
+          const d = Math.hypot(candidate.cx - s.x, candidate.cz - s.z);
+          if (d < bestD) { bestD = d; bestIdx = i; }
+        });
+        if (bestIdx < 0) continue;
+        taken.add(bestIdx);
+        slot = slots[bestIdx];
+        s.x = slot.cx;
+        s.z = slot.cz;
+        s.entrance = { x: slot.face.x, z: slot.face.z };
+      } else {
+        // 实测坐标必须落在楼板上、且不在中庭洞里；否则宁可跳过，也不补一个假坐标
+        if (!isOnSlab(s.x, s.z, 0.4)) {
+          console.warn(`[stores] ${s.id}「${s.name}」(${s.x}, ${s.z}) 落在楼板外或中庭洞里，已跳过，请现场复核`);
+          continue;
+        }
+        let refIdx = 0;
+        let refD = Infinity;
+        slots.forEach((candidate, i) => {
+          const d = Math.hypot(candidate.cx - s.x, candidate.cz - s.z);
+          if (d < refD) { refD = d; refIdx = i; }
+        });
+        taken.add(refIdx);
+        slot = makeSlotAt(s.x, s.z, slots[refIdx], SLOT_DEPTH);
+        // entrance 是实测门口坐标，保持原样；只提醒和几何正面差太远的情况
+        const faceGap = Math.hypot(s.entrance.x - slot.face.x, s.entrance.z - slot.face.z);
+        if (faceGap > 4) {
+          console.warn(`[stores] ${s.id}「${s.name}」entrance 距门脸 ${faceGap.toFixed(1)}m，请核对方向`);
+        }
+      }
 
       const unit = createShopUnit({
         storeId: s.id, name: s.name, category: s.category,
@@ -451,6 +475,7 @@ async function init() {
   const loaded = await loadStores();
   floors = loaded.floors;
   stores = loaded.stores;
+  dataSource = loaded.source;
   floorView = createFloorView(floors, scene);
   shell = createShell(scene);
   buildShops();

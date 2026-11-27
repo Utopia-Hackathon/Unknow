@@ -252,3 +252,37 @@ export const BOUNDS = (() => {
     d: Math.max(...zs) - Math.min(...zs),
   };
 })();
+
+/**
+ * 为**实测坐标**造一块铺位：几何迁就坐标，而不是坐标迁就槽位。
+ *
+ * B 现场记的 x/z 是权威数据，绝不能被 ringSlots 的吸附逻辑改写。
+ * 所以这里以 (x,z) 为中心，借用最近槽位的面宽和朝向切出铺位四边形；
+ * 店名、门脸、光圈全都落在真实坐标上。
+ *
+ * @param {number} x 实测店中心 x
+ * @param {number} z 实测店中心 z
+ * @param {object} reference 最近槽位（提供面宽与朝向）
+ * @param {number} depth 进深
+ */
+export function makeSlotAt(x, z, reference, depth = 5.5) {
+  const rotY = reference.rotY;
+  // 与 ringSlots 一致：+z 面朝中庭，法线 n=(sin rotY, cos rotY)，切向 t=(cos rotY, -sin rotY)
+  const nx = Math.sin(rotY);
+  const nz = Math.cos(rotY);
+  const tx = Math.cos(rotY);
+  const tz = -Math.sin(rotY);
+  const w = Math.max(3.2, reference.width || 5);
+  const hw = w / 2;
+  const hd = depth / 2;
+  const corner = (a, b) => [x + tx * a + nx * b, z + tz * a + nz * b];
+
+  return {
+    poly: [corner(-hw, -hd), corner(hw, -hd), corner(hw, hd), corner(-hw, hd)],
+    face: { x: x + nx * hd, z: z + nz * hd, w },
+    rotY,
+    cx: x,
+    cz: z,
+    width: w,
+  };
+}

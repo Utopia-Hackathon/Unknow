@@ -64,9 +64,27 @@ export async function loadStores() {
     const res = await fetch(`${import.meta.env.BASE_URL}data/stores.json`);
     if (res.ok) {
       const data = await res.json();
+      const floorIds = new Set((data.floors || []).map((f) => f.id));
       const valid = Array.isArray(data.stores) && Array.isArray(data.floors)
-        && data.stores.every((s) => s.id && s.name && s.floor && s.entrance);
-      if (valid) return { floors: data.floors, stores: data.stores, source: 'file' };
+        && data.stores.every((s) => s.id && s.name && s.floor && s.entrance
+          && Number.isFinite(s.x) && Number.isFinite(s.z)
+          && floorIds.has(s.floor));
+      if (valid) {
+        // 契约示例里 floors 只有 level、没有 y；场景代码（floorView / guide）按 y 放楼板。
+        // 这里兜底推算：y = (level - 6) * 4，与占位数据 6F=0 / 7F=4 / 8F=8 一致。
+        // 文件里显式给了 y 就以文件为准——现场测过的值更可信。
+        const floors = data.floors.map((f) => {
+          const hasY = Number.isFinite(f.y);
+          const y = hasY ? f.y : (Number.isFinite(f.level) ? (f.level - 6) * 4 : NaN);
+          if (!Number.isFinite(y)) console.warn(`[stores] 楼层 ${f.id} 缺 y 且 level 非法，已回退占位数据`);
+          return { ...f, y };
+        });
+        if (!floors.every((f) => Number.isFinite(f.y))) {
+          return { floors: FLOORS, stores: STORES, source: 'mock' };
+        }
+        return { floors, stores: data.stores, source: 'file' };
+      }
+      console.warn('[stores] data/stores.json 字段校验未通过，已回退占位数据');
     }
   } catch {
     // 文件不存在或解析失败，静默回退占位数据。
