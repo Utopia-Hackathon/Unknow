@@ -210,10 +210,66 @@ body {
   pointer-events: none; box-shadow: 0 2px 12px rgba(0,0,0,.4);
 }
 
-/* 贴图 dry-run 自测横幅：第三方媒体参考素材，非交付贴图 */
-.dryrun-banner {
-  position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 9998;
-  background: #1d4ed8; color: #fff; font-size: 13px; font-weight: 600;
-  padding: 6px 18px; border-radius: 0 0 6px 6px; letter-spacing: .02em;
-  box-shadow: 0 2px 12px rgba(0,0,0,.4);
+.dash-btn {
+  /* .topbar 整体 pointer-events:none（免得挡住场景拖拽），
+     按钮必须单独打开，否则 canvas 会吃掉点击——实测踩到。 */
+  pointer-events: auto; position: relative; z-index: 10;
+  margin-left: auto; padding: 5px 14px; border-radius: 5px;
+  background: #1e293b; color: #e2e8f0; border: 1px solid #475569;
+  font-size: 13px; cursor: pointer;
 }
+.dash-btn:hover { background: #334155; }
+.dash-root {
+  position: fixed; top: 0; right: 0; z-index: 60;
+  width: min(420px, 94vw); height: 100vh; overflow-y: auto;
+  background: rgba(12, 18, 28, .97); color: #e2e8f0;
+  border-left: 1px solid #334155; padding: 18px 20px 40px;
+  transform: translateX(105%); transition: transform .25s ease;
+  box-shadow: -12px 0 40px rgba(0,0,0,.4);
+}
+.dash-root.open { transform: translateX(0); }
+.dash-head { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #334155; }
+.dash-head strong { font-size: 16px; }
+.dash-sim {
+  font-size: 11px; color: #fbbf24; background: #422006; border: 1px solid #78350f;
+  border-radius: 3px; padding: 1px 6px; white-space: nowrap;
+}
+.dash-close { margin-left: auto; background: transparent; color: #94a3b8; border: 1px solid #475569; border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+.dash-sec { margin-top: 20px; }
+.dash-sec h3 { font-size: 13px; color: #94a3b8; font-weight: 600; margin: 0 0 8px; }
+.dash-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dash-table { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 8px; font-size: 12px; }
+.dash-table-name { display: block; font-weight: 600; }
+.dash-table-state { display: inline-block; margin: 4px 6px 4px 0; font-size: 11px; }
+.dash-table-state.available { color: #6ee7b7; }
+.dash-table-state.occupied { color: #fbbf24; }
+.dash-mini { background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; font-size: 11px; padding: 2px 8px; cursor: pointer; }
+.dash-mini:hover { background: #475569; }
+.dash-events { max-height: 230px; overflow-y: auto; border: 1px solid #334155; border-radius: 6px; }
+.dash-event { display: grid; grid-template-columns: 42px 52px 46px 1fr; gap: 6px; align-items: start; padding: 5px 8px; border-bottom: 1px solid #1e293b; font-size: 11.5px; line-height: 1.45; }
+.dash-event:last-child { border-bottom: none; }
+.dash-tag { font-weight: 700; }
+.dash-t { color: #64748b; font-family: ui-monospace, monospace; }
+.dash-person { color: #94a3b8; font-family: ui-monospace, monospace; }
+.dash-reason { color: #cbd5e1; }
+.dash-reason.bad { color: #fda4af; }
+.dash-main { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 12px; }
+.dash-value { font-size: 30px; font-weight: 700; color: #6ee7b7; line-height: 1.2; }
+.dash-value.dim { color: #94a3b8; font-size: 22px; }
+.dash-formula { font-size: 12px; color: #cbd5e1; margin: 6px 0 10px; }
+.dash-facts { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 11px; color: #94a3b8; }
+.dash-note { margin-top: 8px; background: #422006; color: #fde68a; border-radius: 4px; padding: 5px 8px; font-size: 11px; }
+.dash-controls { display: grid; gap: 8px; font-size: 12px; color: #cbd5e1; }
+.dash-controls label { display: grid; grid-template-columns: 96px 1fr 30px; gap: 8px; align-items: center; }
+.dash-controls input { width: 100%; }
+.dash-run { margin-top: 10px; width: 100%; padding: 8px; background: #1d4ed8; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; }
+.dash-run:hover { background: #2563eb; }
+.dash-result { margin-top: 12px; }
+.dash-compare { display: grid; grid-template-columns: 1fr 24px 1fr; align-items: center; gap: 8px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 12px; }
+.dash-compare span { display: block; font-size: 11px; color: #94a3b8; }
+.dash-compare b { font-size: 20px; }
+.dash-arrow { color: #64748b; font-size: 18px; text-align: center; }
+.dash-delta { grid-column: 1 / -1; border-top: 1px solid #334155; padding-top: 8px; font-size: 12px; color: #6ee7b7; }
+
+/* A03 数据待补：结果区空态提示（DEF-003） */
+.result-empty { padding: 8px 10px; font-size: 12px; color: #fbbf24; }

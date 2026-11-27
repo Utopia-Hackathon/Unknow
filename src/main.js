@@ -6,6 +6,7 @@ import { loadStores, CATALOG_NO_COORDS } from './mockData.js';
 import { createFloorView } from './floorView.js';
 import { searchStores } from './search.js';
 import { createGuide } from './guide.js';
+import { createDashboard } from './dashboard.js';
 import { createPerfMonitor, pixelRatioFor } from './perf.js';
 import { createShopUnit } from './storefront.js';
 import { loadStorefront } from './texturePipeline.js';
@@ -325,6 +326,14 @@ function showResult(result) {
   } else if (result.status === 'noCoords') {
     const c = result.matches[0];
     setMessage(`<strong>数据待补</strong><br/>${c.note}<br/><span class="dim">来源：${c.source}；未虚构点位坐标</span>`, 'warn');
+    // DEF-003（A 独立复核）：结果区也要有反馈，否则视线停在列表里会以为没反应
+    if (ui.results) {
+      ui.results.innerHTML = '';
+      const row = document.createElement('div');
+      row.className = 'result-empty dim';
+      row.textContent = `${c.name} · 数据待补（未虚构坐标）`;
+      ui.results.appendChild(row);
+    }
   } else if (result.status === 'notFound') {
     setMessage(result.message, 'warn');
   } else {
@@ -483,7 +492,13 @@ function onCanvasClick(ev) {
     setMessage(`<strong>${s.name}</strong><br/>缺少 entrance 坐标，点击跳转不可用（数据待补）`, 'warn');
   } else {
     guide.flyToStore(s.id);
-    setMessage(`<strong>${s.name}</strong><br/>${floors.find((f) => f.id === s.floor)?.name || ''} · ${s.category || ''}<br/><span class="dim">来源 ${s.source} · ${s.verified}</span>`);
+    // RISK-005（A 独立复核）：public 直译让评委以为位置已核实，改成中文档位说明
+    const VERIFIED_LABEL = {
+      observed: '现场核实',
+      public: '位置示意（未现场核）',
+      unverified: '示意位置，待现场核实',
+    };
+    setMessage(`<strong>${s.name}</strong><br/>${floors.find((f) => f.id === s.floor)?.name || ''} · ${s.category || ''}<br/><span class="dim">来源 ${s.source} · ${VERIFIED_LABEL[s.verified] || s.verified}</span>`);
   }
 }
 
@@ -518,7 +533,14 @@ async function init() {
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
+  // 动画循环由 perf 分支改成 rAF 首帧驱动（ts 传给 perf.frame），保留这个版本
   requestAnimationFrame(animate);
+
+  // F02/F03 看板：先用合成事件跑通界面，D 的 world 交上来后调 dashboard.bindWorld(world) 即可
+  const dashboard = createDashboard({ root: document.getElementById('dashboard'), stores });
+  document.getElementById('dash-btn')?.addEventListener('click', () => dashboard.open());
+  window.__dashboard = dashboard; // 调试/联调入口：window.__dashboard.bindWorld(world)
+
   setMessage('点击店铺查看详情；搜索店名生成导览路径', 'ok');
 }
 
