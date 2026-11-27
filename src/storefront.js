@@ -152,8 +152,9 @@ export function createShopUnit(opts) {
     highlighted = on;
     signMat.emissiveIntensity = on ? 1.5 : 0.9;
     signMat.emissive.setHex(on ? 0xfbbf24 : 0xffffff);
-    frontMat.emissive.setHex(on ? 0x7a4a10 : 0x141a24);
-    frontMat.emissiveIntensity = on ? 0.9 : 0.3;
+    // 门脸只提一点暖光，不要跟着招牌一起拉满——拉满会糊成一片橙色
+    frontMat.emissive.setHex(on ? 0x3a2408 : 0x141a24);
+    frontMat.emissiveIntensity = on ? 0.45 : 0.3;
   }
 
   return { group, setVisual, setHighlight, signMat, frontMat, bodyMat, badge };

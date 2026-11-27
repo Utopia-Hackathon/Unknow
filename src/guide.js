@@ -151,7 +151,7 @@ export function createGuide({ scene, camera, controls, stores, floors, floorView
     const dx = s.entrance.x - s.x;
     const dz = s.entrance.z - s.z;
     const len = Math.hypot(dx, dz) || 1;
-    const stand = 5.5;
+    const stand = 7.0;  // 铺位进深 5.5m、面宽最多 7m，退 7m 才框得下整间店面
     const target = {
       x: s.entrance.x + (dx / len) * stand,
       y: top + 1.7,
