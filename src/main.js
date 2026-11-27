@@ -332,6 +332,30 @@ function bindUI() {
     setMessage(stepMode ? '讲解模式已开：路径分段暂停，点「下一步」继续' : '讲解模式已关：连续自动走');
   });
   ui.nextBtn?.addEventListener('click', () => guide.nextStep());
+
+  // 用户一动手就把镜头控制权交还给他。
+  // 自动漫游每帧覆盖 camera.position，不中断的话拖拽和滚轮全被盖掉——
+  // 表现就是「点完一家店之后画面动不了」。
+  canvas.addEventListener('mousedown', () => guide?.cancelAnimation());
+  canvas.addEventListener('wheel', () => guide?.cancelAnimation(), { passive: true });
+
+  // Esc：中断漫游 + 退回总览。给用户一条明确的退出路径，
+  // 免得飞近之后不知道该点哪儿才能恢复。
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    guide?.cancelAnimation();
+    if (viewMode === 'firstPerson') {
+      setViewMode('orbit');
+      return;
+    }
+    if (floorView.getFloor() !== 'all') {
+      floorView.setFloor('all');
+      guide.setVisibleFloor('all');
+      highlightFloorButton('all');
+      focusFloor('all');
+      setMessage('已回到总览（Esc）');
+    }
+  });
   pointer.addEventListener('unlock', () => {
     if (viewMode === 'firstPerson') setViewMode('orbit');
   });
@@ -376,7 +400,15 @@ function updateFirstPerson(dt) {
 }
 
 const raycaster = new THREE.Raycaster();
+// 拖动旋转松手时浏览器也会补一个 click，不区分的话会误触发「跳到这家店」。
+// 记下按下位置，移动超过 6px 就当拖拽，不当作点击。
+let downPoint = null;
+canvas.addEventListener('pointerdown', (ev) => {
+  downPoint = { x: ev.clientX, y: ev.clientY };
+});
+
 function onCanvasClick(ev) {
+  if (downPoint && Math.hypot(ev.clientX - downPoint.x, ev.clientY - downPoint.y) > 6) return;
   if (viewMode === 'firstPerson') {
     if (!pointer.isLocked) pointer.lock();
     return;
