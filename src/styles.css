@@ -199,3 +199,21 @@ body {
   .sidebar { left: 10px; bottom: 10px; width: calc(100vw - 20px); }
   .hud-panel { display: none; }
 }
+
+/* 贴图 dry-run 自测横幅：第三方媒体参考素材，非交付贴图 */
+.dryrun-banner {
+  /* 放底部中央：顶部有楼层条，放那儿会挡住切层按钮。
+     pointer-events:none 保证即使有重叠也不拦点击。 */
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 9998;
+  background: #1d4ed8; color: #fff; font-size: 13px; font-weight: 600;
+  padding: 6px 18px; border-radius: 6px; letter-spacing: .02em;
+  pointer-events: none; box-shadow: 0 2px 12px rgba(0,0,0,.4);
+}
+
+/* 贴图 dry-run 自测横幅：第三方媒体参考素材，非交付贴图 */
+.dryrun-banner {
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 9998;
+  background: #1d4ed8; color: #fff; font-size: 13px; font-weight: 600;
+  padding: 6px 18px; border-radius: 0 0 6px 6px; letter-spacing: .02em;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
+}

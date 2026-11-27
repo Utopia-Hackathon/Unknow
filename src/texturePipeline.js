@@ -1,24 +1,17 @@
 import * as THREE from 'three';
+import { TEXTURES, isDryRun } from './textureManifest.js';
 
-// 门脸贴图管线（C-01 / D008）。
+// 门脸贴图管线（C-01 / D008 / C-05）。
 //
 // 两条硬约束，写在这里免得后面忘：
-//   1. **来源分级**：11-29 本队实拍 > Canvas 文字招牌 > 网络参考图。
-//      网络图（storefronts/、baidu/、netease/ 那批）只能作建模参考，不进交付贴图
-//      —— 见 PR #25 的《真实性声明》第三条口径。
+//   1. **来源分级**：11-29 本队实拍 > promo 商家效果图 > Canvas 文字招牌。
+//      媒体图（storefronts/、baidu/、netease/ 那批）只能作建模参考，不进交付贴图
+//      —— 见 D013 §2 / PR #25 的真实性声明口径。
 //   2. **贴图对象只有 10 个点位**，不做全馆；无图一律降级文字招牌，
 //      验收不歧视无贴图店（D008 §3）。
 //
-// 目前 TEXTURES 是空的：11-29 采集前没有任何一张可作交付贴图的实拍图。
-// 补拍回来后只填这张表，其余代码不用动。
-
-// storeId -> { file, source, credit }
-// file 相对于 public/assets/zhenghongcheng/；source 写「现场 2026-11-29」或 E 编号。
-// 空表 = 全部走文字招牌降级，这是当前唯一合规状态。
-export const TEXTURES = {
-  // 示例（11-29 补拍后按此格式填）：
-  // s01: { file: 'storefronts/self/banu-20261129.webp', source: '现场 2026-11-29' },
-};
+// 映射表在 textureManifest.js（单一真源），本文件只读不写。
+// 11-29 素材拷进仓库后，只改 manifest 的 file 字段即可生效。
 
 const SIGN_W = 512;
 const SIGN_H = 128;
@@ -26,6 +19,24 @@ const TEX_ASPECT = 4 / 3; // 门脸立面 4×3
 
 const loader = new THREE.TextureLoader();
 const cache = new Map();
+
+// 魔数校验抽到 imageFormat.js，便于 Node 单测直接验「假 PNG」拦截。
+import { verifyImage } from './imageFormat.js';
+
+async function fetchChecked(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  const check = verifyImage(new Uint8Array(buf), url);
+  if (!check.ok) throw new Error(check.reason);
+  return URL.createObjectURL(new Blob([buf], { type: check.mime }));
+}
+
+function loadTexture(blobUrl) {
+  return new Promise((resolve, reject) => {
+    loader.load(blobUrl, resolve, undefined, () => reject(new Error('解码失败')));
+  });
+}
 
 // 业态配色。招牌不能十个一个色，但也不能彩虹——按业态归三档冷暖即可。
 const CATEGORY_TONE = {
@@ -53,19 +64,16 @@ export function createSignTexture(store) {
   const ctx = canvas.getContext('2d');
   const tone = toneFor(store.category);
 
-  // 底：深色 + 品牌色暗渐变，像灯箱而不是纯色块
   const grad = ctx.createLinearGradient(0, 0, SIGN_W, SIGN_H);
   grad.addColorStop(0, '#10161f');
   grad.addColorStop(1, tone);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, SIGN_W, SIGN_H);
 
-  // 细描边：模拟灯箱边框
   ctx.strokeStyle = 'rgba(255,255,255,.18)';
   ctx.lineWidth = 3;
   ctx.strokeRect(6, 6, SIGN_W - 12, SIGN_H - 12);
 
-  // 店名：字多就缩字号，不换行、不截断
   const name = store.name || '未命名';
   let size = 54;
   ctx.font = `700 ${size}px "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif`;
@@ -81,7 +89,6 @@ export function createSignTexture(store) {
   ctx.fillText(name, SIGN_W / 2, SIGN_H / 2 - 6);
   ctx.shadowBlur = 0;
 
-  // 副行：业态 · 楼层（楼层由调用方传，缺省不写）
   if (store.category || store._floorLabel) {
     const sub = [store.category, store._floorLabel].filter(Boolean).join(' · ');
     ctx.font = '400 22px "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
@@ -102,7 +109,7 @@ export function cropToAspect(tex, targetAspect = TEX_ASPECT) {
   if (!img || !img.width || !img.height) return tex;
   const srcAspect = img.width / img.height;
   if (srcAspect > targetAspect + 0.001) {
-    const visible = targetAspect / srcAspect; // 保留中间这么宽
+    const visible = targetAspect / srcAspect;
     tex.repeat.set(visible, 1);
     tex.offset.set((1 - visible) / 2, 0);
   } else if (srcAspect < targetAspect - 0.001) {
@@ -116,57 +123,75 @@ export function cropToAspect(tex, targetAspect = TEX_ASPECT) {
   return tex;
 }
 
-export function storefrontUrl(storeId) {
+export function storefrontUrl(storeId, { dryRun = false } = {}) {
   const entry = TEXTURES[storeId];
-  if (!entry || !entry.file) return null;
+  if (!entry) return null;
+  const rel = dryRun ? entry.dryRunFile : entry.file;
+  if (!rel) return null;
   const base = import.meta.env.BASE_URL || '/';
-  return `${base}assets/zhenghongcheng/${entry.file}`;
+  return `${base}assets/zhenghongcheng/${rel}`;
 }
 
-// 加载失败一律返回 null，由调用方降级——不允许因为一张图 404 让整个场景黑掉。
+/**
+ * 加载一家店的门脸贴图，返回结构化结果而不是裸 Texture。
+ *
+ * 调用方据此决定：
+ *   loaded  → setVisual({ texture })
+ *   failed  → setVisual({ pending: true }) 降级文字招牌
+ *   skipped → 保持默认文字招牌（没有图，不是错误）
+ *   dryrun  → 参考素材，界面必须带醒目角标
+ *
+ * 单张失败不影响其余 9 家，且 console.error 打可读原因，不静默吞。
+ */
 export function loadStorefront(storeId) {
-  const url = storefrontUrl(storeId);
-  if (!url) return Promise.resolve(null);
+  const dry = isDryRun();
+  const url = storefrontUrl(storeId, { dryRun: dry });
+  if (!url) {
+    const entry = TEXTURES[storeId];
+    return Promise.resolve({
+      texture: null,
+      status: 'skipped',
+      reason: entry ? '该店无交付贴图，走文字招牌' : `id ${storeId} 不在贴图映射表`,
+      dry,
+    });
+  }
   if (cache.has(url)) return cache.get(url);
 
-  const p = new Promise((resolve) => {
-    loader.load(
-      url,
-      (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.anisotropy = 4;
-        cropToAspect(tex);
-        resolve(tex);
-      },
-      undefined,
-      () => {
-        console.warn(`[texturePipeline] 贴图加载失败，降级文字招牌：${url}`);
-        resolve(null);
-      }
-    );
-  });
+  const p = (async () => {
+    try {
+      const blobUrl = await fetchChecked(url);
+      const tex = await loadTexture(blobUrl);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+      cropToAspect(tex);
+      return { texture: tex, status: dry ? 'dryrun' : 'loaded', url, dry, storeId };
+    } catch (err) {
+      console.error(`[textures] ${storeId} 门头贴图失败，降级文字招牌：${err.message}（${url}）`);
+      return { texture: null, status: 'failed', reason: err.message, url, dry, storeId };
+    }
+  })();
   cache.set(url, p);
   return p;
 }
 
-// 「数据待补」角标：贴在体块上方，告诉评委这个点位位置是示意值。
+// 「数据待补 / 参考素材」角标：贴在体块上方。
 export function createPendingBadgeTexture(text = '数据待补') {
   const c = document.createElement('canvas');
-  c.width = 256;
+  c.width = 320;
   c.height = 64;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = 'rgba(120,53,15,.92)';
+  ctx.fillStyle = text.includes('参考') ? 'rgba(30,64,175,.95)' : 'rgba(120,53,15,.92)';
   ctx.beginPath();
-  ctx.roundRect(4, 4, 248, 56, 10);
+  ctx.roundRect(4, 4, 312, 56, 10);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(251,191,36,.8)';
+  ctx.strokeStyle = text.includes('参考') ? 'rgba(147,197,253,.9)' : 'rgba(251,191,36,.8)';
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.fillStyle = '#fde68a';
-  ctx.font = '600 26px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
+  ctx.font = '600 24px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 34);
+  ctx.fillText(text, 160, 34);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;

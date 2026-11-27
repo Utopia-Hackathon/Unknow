@@ -9,6 +9,7 @@ import { createGuide } from './guide.js';
 import { createPerfMonitor, pixelRatioFor } from './perf.js';
 import { createShopUnit } from './storefront.js';
 import { loadStorefront } from './texturePipeline.js';
+import { isDryRun } from './textureManifest.js';
 import { createShell } from './shell.js';
 import { BACKDROP, isOnSlab, ringSlots, makeSlotAt } from './floorPlan.js';
 import { buildVerticals } from './backgroundShops.js';
@@ -219,12 +220,27 @@ function buildShops() {
     buildVerticals({ floorLabel: f.name, floorTop: top, group });
   }
 
-  // 贴图按表加载（texturePipeline.TEXTURES）。表里没有 = 保持文字招牌，
-  // 这是 11-29 采集前的正常状态，不是失败。
+  // 贴图按 textureManifest.js 加载（单一真源）。
+  // 缺图/坏图不静默吞：单店降级文字招牌 + pending 角标，其余店正常。
+  const dryRun = isDryRun();
+  if (dryRun) {
+    // dry-run 只用于管线自测，显示的是第三方媒体参考素材，必须醒目声明
+    document.body.classList.add('texture-dryrun');
+    const banner = document.createElement('div');
+    banner.className = 'dryrun-banner';
+    banner.textContent = '纹理 dry-run · 当前显示的是第三方媒体参考素材，非交付贴图';
+    document.body.appendChild(banner);
+  }
   for (const s of stores) {
-    loadStorefront(s.id).then((tex) => {
-      if (!tex) return;
-      storeMeshes.get(s.id)?.setVisual({ texture: tex });
+    loadStorefront(s.id).then((r) => {
+      const entry = storeMeshes.get(s.id);
+      if (!entry) return;
+      if (r.texture) {
+        entry.setVisual({ texture: r.texture, badgeText: r.dry ? '参考素材' : null });
+      } else if (r.status === 'failed') {
+        // 贴图坏了 → 文字招牌 + 「数据待补」角标（Issue #43 要求）
+        entry.setVisual({ pending: true });
+      }
     });
   }
 }
