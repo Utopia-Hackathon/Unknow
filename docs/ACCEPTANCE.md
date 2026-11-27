@@ -94,8 +94,8 @@
 
 - **DEF-001** — 对应 A07：指标判定误用 `metrics.value`，而引擎契约返回 `lossRate`，导致 n=60 被误判「样本不足」。C 已在 PR #33 内改为读 `lossRate`。复现/修复后证据待 A 实机补。
 - **DEF-002** — 对应 A07：`.topbar` 为 `pointer-events:none`，canvas 吃掉「经营看板」按钮点击。C 已给按钮单独开 `auto`。修复后证据待 A 实机补。
-- **RISK-001** — PR #33 `mergeable_state=dirty`，与已合入的 PR #31 同改 `index.html` / `src/main.js` / `src/styles.css`。C 自述合并顺序建议 #30 → #31 → #33，按「两边都保留」解冲突。#33 未合入前，其自测不得当验收证据。
-- **RISK-002** — `data/stores.json` 未落盘，阻塞 A09「缺 entrance 分支」与 A04–A07 的真实数据验收；Issue #9 open，指派 B（`origin/task/b-stores` 已出现，D 数据分支未落 main）。
+- **RISK-001（2026-11-27 复核：冲突项已消解，PR 仍未合）** — 原记「PR #33 `mergeable_state=dirty`，与已合入的 PR #31 同改 `index.html` / `src/main.js` / `src/styles.css`」。复核结果：`task/c02-dashboard` 的 `7bb6acb` 已把 origin/main 合入并解掉三文件冲突，GitHub 现报 `mergeable=CLEAN`、CI 三 job 全绿。**故「合并顺序 #30 → #31 → #33」与「按两边都保留解冲突」已不适用**；剩余风险改为：① #33 尚未合入，其自测仍不得当验收证据；② #44 也改 `src/main.js` / `src/styles.css`，两者哪先合后须重跑一次 CI。
+- **RISK-002（2026-11-27 复核：挡住的是 DRAFT 状态）** — `data/stores.json` 未落盘，阻塞 A09「缺 entrance 分支」与 A04–A07 的真实数据验收；Issue #9 open。PR #37 已提交且 `mergeable=CLEAN` + CI 绿，但**仍为 DRAFT（未标 ready）**，需 B 标 ready 后评审合并，main 才有 `data/`。
 
 ## 5. 复核与报告
 
@@ -113,7 +113,7 @@
 3. 搜「喜茶」等无点位店铺，复核 A03：确认出现「数据待补」而不是静默失败。
 4. 切第一人称走动一次，复核 A08：确认不穿墙、不掉楼板、切回总览视角复位，重点看新场景 `isOnSlab` 边界。
 5. 在 main 上重跑 A10/A11：外部看完整 9 层外壳、楼层条仅 6F/7F/8F、无空白楼层、门脸可辨且不落中庭；按硬标准判，不因 C 的自查结论放行。
-6. 等 PR #33 解冲突合入后，跑 A04–A07（合成数据）：逐项核对 D010 四要素与 n<30 规则，并复核 DEF-001/DEF-002 修复。
+6. 等 PR #33 合入后（冲突已由 `7bb6acb` 解掉、CI 绿，剩评审），跑 A04–A07（合成数据）：逐项核对 D010 四要素与 n<30 规则，并复核 DEF-001/DEF-002 修复。
 7. 找有 GPU 的机器复测 1440×900 ≥30fps，通过后关 Issue #19。
 8. B 交 `data/stores.json` 后重跑 A09 的「缺 entrance」分支；D 交引擎后执行 `window.__dashboard.bindWorld(world)` 重跑 A04–A07 的真实数据链路。
 9. 逐行把状态改为「通过（层级）」或「失败」，证据补成路径/命令/commit；不通过的行按 §4 模板开缺陷。
