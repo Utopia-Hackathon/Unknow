@@ -42,6 +42,7 @@ npm run preview      # 预览构建产物
 | `npm run build` | 生产构建（Vite 8 + three 0.187） | CI `build` job 每次 PR 执行；E-02 分包合入后本机实测 4 chunks、无体积告警 |
 | `node scripts/check-assets.mjs` | 贴图格式与体积门禁（魔数校验，不只看后缀） | CI `assets` job 每次 PR 执行 |
 | `node scripts/check-stores.mjs` | `data/stores.json` 字段与坐标契约校验 | CI `data` job 每次 PR 执行 |
+| `node --test src/*.test.mjs src/engine/__tests__/*.test.mjs` | 单测全套（含 `perf.test.mjs` 帧率降级逻辑 11 条） | 2026-11-28 实测 46/46 全过；**逻辑单测不等于 GPU 帧率判据**（#19 仍待 GPU 机） |
 | `node scripts/check-engine-contract.mjs` | 引擎接口契约验收夹具（CONTRACTS §三 + METRICS_DEF §6） | 2026-11-27 新增；当前 `src/engine/` 未交付 → `SKIP`（**SKIP 不等于通过**） |
 | `node scripts/check-acceptance-cdp.mjs --port 9222` | 浏览器验收探针（A01/A02/A04/A06/A07/A12，需先起 Chrome 调试端口） | 2026-11-28 新增（#53）；本机软渲染下全量有 5 项超时 WARN，看板子集 PASS 3 / FAIL 0 / SKIP 1 |
 
