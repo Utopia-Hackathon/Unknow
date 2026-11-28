@@ -246,13 +246,21 @@ export function createDashboard({ root, stores = [], onStoreFocus = null }) {
     },
     bindWorld(nextWorld) {
       world = nextWorld || createMockWorld();
-      // 真引擎可能没有 tables/getEvents；没有就沿用当前 UI 状态，不强求
+      // 真引擎可能没有 tables；没有就沿用当前 UI 状态，不强求
       if (Array.isArray(world.tables)) {
         tableStates = new Map(world.tables.map((t) => [t.id, t.occupied ? 'occupied' : 'available']));
         renderTables();
       }
+      // 事件源必须跟着世界一起切（Issue #73 / DEF-DASH-01、02）：
+      // 只 pushEvents(tick(0)) 会把真引擎事件追加到 mock 残留上，
+      // 导致「指标 50%、事件流 lost 只有 3 条」同屏自相矛盾。
+      // 有 getEvents 就整段替换；tick(0) 返回空（集成方已消费）也不再依赖。
+      if (typeof world.getEvents === 'function') {
+        const next = world.getEvents();
+        events = Array.isArray(next) ? [...next] : [];
+        renderEvents();
+      }
       if (world.getMetrics) updateMetrics(world.getMetrics());
-      if (world.tick) pushEvents(world.tick(0));
       runScenario();
     },
     getState: () => ({ events, metrics, tableStates: [...tableStates.entries()], hasEngine: !!world }),
