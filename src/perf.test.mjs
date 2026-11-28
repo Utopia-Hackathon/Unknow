@@ -57,37 +57,86 @@ test('中位 fps < 24 持续 → 逐档降（2s 评估窗口）', () => {
   assert.ok(s.droppedAt.some((d) => /中位/.test(d.reason)), '应记录中位 fps 触发的降档');
 });
 
-test('瞬时单帧 < 15fps → 直接落 L2（panic 分支）', () => {
+// #91 修订：单帧长帧不再直落 L2（首屏纹理上传/GC 都会偶发），必须连续 N 帧。
+test('单帧 < 15fps 不 panic（#91：单帧可被首屏长帧误伤）', () => {
   const p = createPerfMonitor({
-    debug: false, warmupFrames: 90, dropBelowFps: 24, panicBelowFps: 15,
+    debug: false, warmupFrames: 0, warmupMs: 0,
+    panicStreakFrames: 3, panicBelowFps: 15,
+    evalIntervalMs: 999999, minSamples: 999999,
+  });
+  feed(p, 16.7, 100);
+  assert.equal(p.stats().levelIndex, 0);
+  feed(p, 100, 1, 1670);        // 单独一帧 10fps
+  assert.equal(p.stats().levelIndex, 0, '单帧不得触发 panic');
+  assert.equal(p.stats().panicStreak, 1, '连续计数应记为 1');
+});
+
+test('连续 3 帧 < 15fps → 直落 L2（panic 分支）', () => {
+  const p = createPerfMonitor({
+    debug: false, warmupFrames: 0, warmupMs: 0,
+    panicStreakFrames: 3, panicBelowFps: 15,
+    evalIntervalMs: 999999, minSamples: 999999,
   });
   feed(p, 16.7, 100);           // 暖机
   assert.equal(p.stats().levelIndex, 0);
-  feed(p, 100, 30, 1670);       // 10fps 单帧 < 15 → panic
+  feed(p, 100, 3, 1670);        // 连续 3 帧 10fps
   const s = p.stats();
-  assert.equal(s.levelIndex, 2, '瞬时崩帧应直落 L2');
-  assert.ok(s.droppedAt.some((d) => /瞬时单帧/.test(d.reason)), '应记录 panic 原因');
+  assert.equal(s.levelIndex, 2, '连续崩帧应直落 L2');
+  assert.ok(s.droppedAt.some((d) => /连续 3 帧/.test(d.reason)), '应记录连续帧原因');
+});
+
+test('warmupMs 时间维度：帧数够了但时间没到也不判 panic', () => {
+  const p = createPerfMonitor({
+    debug: false, warmupFrames: 0, warmupMs: 3000,
+    panicStreakFrames: 3, panicBelowFps: 15,
+    evalIntervalMs: 999999, minSamples: 999999,
+  });
+  feed(p, 100, 5);              // 只过了 500ms < 3000ms
+  assert.equal(p.stats().levelIndex, 0, 'warmupMs 内不判 panic');
+  feed(p, 100, 10, 500);        // 累计 1500ms，仍不足
+  assert.equal(p.stats().levelIndex, 0);
 });
 
 test('warmup 期内慢帧不触发 panic（首屏编译豁免）', () => {
-  const p = createPerfMonitor({ debug: false, warmupFrames: 90, panicBelowFps: 15 });
+  const p = createPerfMonitor({ debug: false, warmupFrames: 90, warmupMs: 0, panicBelowFps: 15 });
   feed(p, 100, 50);             // 前 50 帧全 10fps，但都在 warmup 内
   const s = p.stats();
-  assert.equal(s.droppedAt.some((d) => /瞬时单帧/.test(d.reason)), false,
+  assert.equal(s.droppedAt.some((d) => /连续 .* 帧/.test(d.reason)), false,
     'warmup 内不应触发 panic 降档');
 });
 
-test('只降不升：恢复 60fps 后档位不回升', () => {
+// #91 修订：允许回升一档，但有次数上限，避免阈值附近来回抖。
+test('稳定高分可回升一档，但最多 1 次（#91）', () => {
   const p = createPerfMonitor({
-    debug: false, warmupFrames: 90, dropBelowFps: 24, panicBelowFps: 15,
+    debug: false, warmupFrames: 0, warmupMs: 0,
+    panicStreakFrames: 3, panicBelowFps: 15,
+    evalIntervalMs: 1000, minSamples: 10,
+    recoverAboveFps: 45, recoverStableMs: 3000, maxRecoveries: 1,
   });
-  feed(p, 16.7, 100);
-  feed(p, 100, 30, 1670);       // 触发 panic → L2
-  const dropped = p.stats().levelIndex;
-  assert.equal(dropped, 2);
-  feed(p, 16.7, 300, 4670);     // 恢复高速
-  assert.equal(p.stats().levelIndex, 2, '档位不得回升');
-  assert.equal(p.stats().droppedAt.length, 1, '不得重复记升档');
+  feed(p, 16.7, 20);
+  feed(p, 100, 3, 334);         // 连续崩帧 → L2
+  assert.equal(p.stats().levelIndex, 2);
+  feed(p, 16.7, 300, 634);      // 恢复 60fps 约 5s，跨过 3s 稳定窗口
+  const s = p.stats();
+  assert.equal(s.levelIndex, 1, '应回升一档到 L1');
+  assert.equal(s.recoveries, 1);
+  assert.ok(s.droppedAt.some((d) => d.direction === 'up'), '历史里应有 up 记录');
+  feed(p, 16.7, 400, 5634);     // 再稳定很久
+  assert.equal(p.stats().levelIndex, 1, '回升上限 1 次，不得继续回 L0');
+  assert.equal(p.stats().recoveries, 1);
+});
+
+test('未稳定足够久不回升', () => {
+  const p = createPerfMonitor({
+    debug: false, warmupFrames: 0, warmupMs: 0,
+    panicStreakFrames: 3, panicBelowFps: 15,
+    evalIntervalMs: 1000, minSamples: 10,
+    recoverAboveFps: 45, recoverStableMs: 10000, maxRecoveries: 1,
+  });
+  feed(p, 16.7, 20);
+  feed(p, 100, 3, 334);         // → L2
+  feed(p, 16.7, 200, 634);      // 恢复高分约 3.3s，< 10s 稳定窗口
+  assert.equal(p.stats().levelIndex, 2, '稳定时长不足不回升');
 });
 
 test('切标签页回来的巨大间隔被丢弃，不污染采样', () => {
