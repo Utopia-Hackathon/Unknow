@@ -42,9 +42,11 @@ npm run preview      # 预览构建产物
 | `npm run build` | 生产构建（Vite 8 + three 0.187） | CI `build` job 每次 PR 执行；E-02 分包合入后本机实测 4 chunks、无体积告警 |
 | `node scripts/check-assets.mjs` | 贴图格式与体积门禁（魔数校验，不只看后缀） | CI `assets` job 每次 PR 执行 |
 | `node scripts/check-stores.mjs` | `data/stores.json` 字段与坐标契约校验 | CI `data` job 每次 PR 执行 |
-| `node --test src/*.test.mjs src/engine/__tests__/*.test.mjs` | 单测全套（含 `perf.test.mjs` 帧率降级逻辑 11 条） | 2026-11-28 实测 46/46 全过；**逻辑单测不等于 GPU 帧率判据**（#19 仍待 GPU 机） |
+| `node --test src/*.test.mjs src/engine/__tests__/*.test.mjs` | 单测全套（含 `perf.test.mjs` 帧率降级逻辑 11 条、`floorPlan.test.mjs` 几何不变量 11 条） | 2026-11-28 实测 **57/57 全过**；**逻辑单测不等于 GPU 帧率判据**（#19 仍待 GPU 机） |
 | `node scripts/check-engine-contract.mjs` | 引擎接口契约验收夹具（CONTRACTS §三 + METRICS_DEF §6） | 11-28 实测 **17 PASS / 0 FAIL**（引擎已随 #63 交付）；`--require` 验收模式同样全过。**SKIP 不等于通过**（通用说明：判据无法判定时记 SKIP，与 FAIL/通过区分） |
 | `node scripts/check-acceptance-cdp.mjs --port 9222` | 浏览器验收探针（A01/A02/A04/A06/A07/A12，需先起 Chrome 调试端口） | 2026-11-28 新增（#53）；本机软渲染下全量有 5 项超时 WARN，看板子集 PASS 3 / FAIL 0 / SKIP 1 |
+| `node scripts/check-dashboard-engine.mjs` | 真引擎集成复核（A04–A07，Node 无头 DOM stub） | 2026-11-28 新增（#74）；当前报 DEF-DASH-01/02 两缺陷（派 C #73），引擎真值 50.0%/n=40；`--strict` 缺陷未修尽时 exit 1 |
+| **一键复跑索引** | `docs/EVIDENCE_INDEX.md` | 评委照表敲命令即可复现各判据；命令通过 ≠ 验收通过，判定仍以 `ACCEPTANCE.md` 为准 |
 
 以 CI 配置（`.github/workflows/check.yml`）为权威检查清单，不产生两套真相——上表中 `build` / `assets` / `data` 三条对应 CI 三 job；单测全套、引擎夹具、CDP 探针为补充检查，目前不进 CI（引擎夹具入 CI 为 D 的 #66 任务）。
 命令存在但没跑过时写「未执行」，不写「通过」；引擎夹具的 `SKIP` 同样不算通过。

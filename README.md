@@ -24,6 +24,7 @@
 | [工程规范](AGENTS.md) | 编码助手的工程与授权边界 |
 | [决策台账](docs/DECISIONS.md) | 决策、问题、替代关系、换机与续聊恢复 |
 | [验收清单](docs/ACCEPTANCE.md) | 逐项状态与证据（唯一结果记录） |
+| [一键复跑证据索引](docs/EVIDENCE_INDEX.md) | 评委照表敲命令复现各判据（命令≠判定） |
 | [实施状态](docs/STATUS.md) | 进度概括与剩余缺口 |
 | [运行说明](docs/RUNBOOK.md) | 真实命令与运行边界 |
 | [提交手册](docs/CONTRIBUTING.md) | 分支、提交与 PR 约定 |
