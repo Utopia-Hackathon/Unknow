@@ -32,14 +32,17 @@ jobs:
       - run: node scripts/check-assets.mjs
 
   data:
-    name: data · stores.json 结构
+    name: data · 数据结构校验（stores / field-log）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node scripts/check-stores.mjs
+      - name: stores.json 结构
+        run: node scripts/check-stores.mjs
+      - name: field-collection-log.json 结构（现场回填前允许 null，回填后必须合法）
+        run: node scripts/check-field-log.mjs
 
   engine:
     name: engine · 决策引擎契约与单测
