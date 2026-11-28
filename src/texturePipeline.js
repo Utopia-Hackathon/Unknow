@@ -124,8 +124,10 @@ export function cropToAspect(tex, targetAspect = TEX_ASPECT) {
 }
 
 // 构建期注入的「现场贴图实际到货清单」（vite.config.js 扫描 field-1129/ 生成）。
-// 不在清单里的文件不请求：浏览器会把 404 记成 console.error，JS 拦不住；
-// 而缺图属于 D013 允许的合法留空，应静默走文字招牌，不算加载失败。
+// 只用来判断 field-1129/ 下的文件在不在：不在清单里就不请求——
+// 浏览器会把 404 记成 console.error，JS 拦不住；缺图属于 D013 允许的合法留空，
+// 应静默走文字招牌，不算加载失败。
+// 注意：promo/ 等已入库素材（如 s07 的商家效果图）不走这份清单，否则会被误杀。
 const AVAILABLE_FIELD_TEXTURES = typeof __FIELD_TEXTURE_FILES__ !== 'undefined'
   ? new Set(__FIELD_TEXTURE_FILES__)
   : null;
@@ -135,8 +137,11 @@ export function storefrontUrl(storeId, { dryRun = false } = {}) {
   if (!entry) return null;
   const rel = dryRun ? entry.dryRunFile : entry.file;
   if (!rel) return null;
-  // 交付贴图（非 dryrun）只在构建期确认存在时才请求
-  if (!dryRun && AVAILABLE_FIELD_TEXTURES && !AVAILABLE_FIELD_TEXTURES.has(rel)) return null;
+  // 仅对「现场采集」目录做存在性检查；promo/ 等已入库素材直接放行。
+  if (!dryRun && AVAILABLE_FIELD_TEXTURES && rel.startsWith('field-1129/')
+    && !AVAILABLE_FIELD_TEXTURES.has(rel)) {
+    return null;
+  }
   const base = import.meta.env.BASE_URL || '/';
   return `${base}assets/zhenghongcheng/${rel}`;
 }
