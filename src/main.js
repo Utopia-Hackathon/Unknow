@@ -73,10 +73,10 @@ function applyQuality(levelIndex) {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   // floorView / shell 在 init() 里才创建；降档可能在它之前触发，用可选调用。
-  if (levelIndex >= 2) {
-    if (typeof floorView?.setDetailLevel === 'function') floorView.setDetailLevel(2);
-    if (typeof shell?.setDetailLevel === 'function') shell.setDetailLevel(2);
-  }
+  // L2 关次要细节；回升到 L0/L1 时恢复（#91 允许回升一档，否则细节永远回不来）。
+  const detail = levelIndex >= 2 ? 2 : 0;
+  if (typeof floorView?.setDetailLevel === 'function') floorView.setDetailLevel(detail);
+  if (typeof shell?.setDetailLevel === 'function') shell.setDetailLevel(detail);
 }
 
 function resize() {
