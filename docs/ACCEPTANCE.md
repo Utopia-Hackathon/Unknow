@@ -1,9 +1,10 @@
 # 验收清单
 
-版本：v0.3.2（11-27 A 侧独立复核版 + 11-28 两处口径勘误：交付落盘状态、A11 判据与 D013 对齐）
+版本：v0.3.3（11-27 A 侧独立复核版 + 11-28 口径勘误 + 11-28 生产构建复核回填）
 更新日期：2026-11-28
 > **v0.3.1 勘误（11-28）**：§3 五行交付项的落盘状态表述已按 main 实际提交号更新（A-02 五份源稿均已入库，见各行）。**不改任何验收状态、不新增通过行**；§2 的复核证据保持原样。核据：`3a1fb456` / `c38e05d2` / `f97cca5c` 的 `git log -- <path>`。
 > **v0.3.2 口径勘误（11-28）**：A11 判据原文「外部视角可见完整建筑外壳」与 D013「朝相机 +x/+z 两面剖切」冲突，已按 D013 回写为「外壳存在且剖切方式符合 D013」。**复核结论与证据不变**——11-27 实测即按 D013 判通过，本次只修字面判据与风险登记（RISK-004 关闭），不新增通过行、不改任何判定层级。
+> **v0.3.3 生产构建复核回填（11-28）**：A 在 main 上执行 `npm run build` 与三个门禁脚本，拿到生产构建与契约真值（详见 §7「11-28 生产构建复核」）。回填 §3「生产构建复核」与 §6 待办 9、修正已过时的 RISK-002 登记。**不改 §2 任何验收状态层级、不新增通过行**——A04–A07 仍是「界面链路通过 / 引擎真值待重跑」，引擎契约 17 PASS 只作线索，不顶替 A 侧浏览器复核；帧率判据仍因本机无 GPU 未判。
 适用基准：开发书 v0.1 §6 验收定义、AGENTS.md v0.1
 
 本文维护逐项验收状态与证据，是**唯一结果记录**。
@@ -79,7 +80,7 @@
 
 | 项 | 状态 | 备注 |
 | --- | --- | --- |
-| 可访问 / 可运行的完整样例 | 部分完成 | dev 可跑（本次复核即跑 dev）；PR #29 已修生产 `data/stores.json` 404。**A 未做生产构建与部署复核** |
+| 可访问 / 可运行的完整样例 | 部分完成 | dev 可跑（11-27 复核即跑 dev）；PR #29 已修生产 `data/stores.json` 404。**11-28 A 已补生产构建复核**：`npm run build` 退出 0、Vite 8.3.8 / 25 modules / 4 chunks 无体积告警；`dist/data/stores.json` 落位（4399B，与源一致）——证据见 §7。**部署 / preview 复核仍待**，构建通过不等于已上线 |
 | 可运行代码与依赖锁文件 | 已具备 | main 有 `package.json` + `package-lock.json`；A 未逐项复核干净安装 |
 | 启动、配置、迁移与部署说明 | 部分完成 | `docs/RUNBOOK.md` 已补真实启动与四条检查命令（PR #42）；照做可行性未全流程验证 |
 | 素材来源与使用范围记录 | 部分完成 | `docs/SOURCES.md` + `docs/RESEARCH.md`；A-02 五份源稿 v0.2 已入 main（`3a1fb456`，11-27；`AI_USAGE`/`VIDEO_SCRIPT` 后续 `f97cca5c` 订正） |
@@ -113,7 +114,7 @@
 - **DEF-002**（已修 / A 实测确认）— 对应 A07：`.topbar` 为 `pointer-events:none`，canvas 吃掉「经营看板」按钮点击。C 给按钮单独开 `auto`；A 实测 `#dash-btn` 点击可正常打开看板。
 - **DEF-003**（已修 / PR #44，可用性）— 对应 A03：搜索无点位店铺时，「数据待补」提示只写入 `#panel`，`#results` 保持空容器（`innerHTML=""`、`children=0`）。判据未违反（确实给了明确提示、未静默失败），但用户视线若停在结果区会以为无响应。**修复**：C 在 PR #44 于 `main.js` 的 `ui.results` 同步渲染「{店名} · 数据待补（未虚构坐标）」行，A 复核确认。
 - **RISK-001**（已解除）— PR #33 曾 `dirty` 并与 #31 冲突；C 用 `git merge origin/main` 追平后 `clean`，A 已合入（`afeb105`），Issue #40 可关。
-- **RISK-002**（仍开放）— `data/stores.json` 未进 main（PR #37 仍为 Draft）。阻塞 A09「缺 entrance 分支」与 A04–A07 真实数据验收；`window.__HAS_STORES_DATA__ = false`。B 转 ready 即可合。
+- **RISK-002**（部分缓解 / 11-28 事实订正）— `data/stores.json` **已进 main**（PR #37 合入 `3e1eb655`，11 个点位实测 10 条，`node scripts/check-stores.mjs` 结构全过），`__HAS_STORES_DATA__` 构建期随文件存在置 true。**但**：10 点位 `verified` 仍全为 `public`、坐标为示意值（B 的任务 #10/#65 未交现场核实），因此 A09「缺 entrance 分支」与 A10「unverified 分支」仍无真实数据触发，A04–A07 真值链路仍需 D 引擎接入后由 A 重跑。**文件入 main ≠ 现场数据到位**，本行不因此转绿。
 - **RISK-003**（已缓解 / PR #44，展示风险）— 对应 A07：推演区**初始参数全为 0**，`启用前` 与 `启用后` 都是 31.7%、delta 0.0pp。逻辑正确，但演示时若不调滑块，镜头里是「无变化」，评委可能误读为推演失效。**修复**：C 在 PR #44 把滑块默认改为 增加 2 人桌=4 / 降低到达率=0 / 延长容忍=10，首屏即有非零 delta。录屏脚本仍由 A 负责，按实际画面调整旁白。
 - **RISK-004**（已关闭 / 文档口径，11-28 A 回写）— 对应 A11：判据原文「外部视角可见完整建筑外壳」与 D013「朝相机两面剖切」冲突。实测自 11-27 起即按 D013 执行；本次已把 A11 字面判据改为「外壳存在且剖切方式符合 D013（朝相机 +x/+z 两面）」，并同步 §2 A11 行、§2 说明与 `STATUS.md`。**判定与证据不变**，仅消除文档口径冲突。
 - **RISK-005**（已缓解 / PR #44，数据口径）— 对应 A10：10 点位 `verified` 全为 `public`，UI 面板只显示「来源 E28 · public」英文词；A10 要求的「`unverified` 点位 UI 有示意位置提示」这条分支从未出现。**修复**：C 在 PR #44 把 `public` 映射为中文「位置示意（未现场核）」、`unverified` 映射为「示意位置，待现场核实」。**仍待**：B 交 `stores.json` 后补测 `unverified` 分支（当前 10 点位全 `public`，该 UI 分支仍无真实数据触发）。
@@ -136,8 +137,8 @@
 5. ✅ **A10/A11**（11-27）：main 上重跑，9 层外壳、楼层条仅 6F/7F/8F、门脸可辨不落中庭；A11 按 D013 剖切口径判并留口径说明。
 6. ✅ **A04–A07**（11-27，PR #33 已合）：D010 四要素 + n<30 规则 + 推演 delta，并确认 DEF-001/DEF-002 已修。
 7. ⏳ 找有 GPU 的机器复测 1440×900 ≥30fps，通过后关 Issue #19。
-8. ⏳ B 交 `data/stores.json`（PR #37 转 ready）后重跑 A09 的「缺 entrance」分支与 A10 的 `unverified` 分支；D 交引擎后执行 `window.__dashboard.bindWorld(world)` 重跑 A04–A07 真实数据链路。
-9. ⏳ 生产构建复核（`npm run build` + `preview`）与 `dist/data/stores.json` 落位确认；本次只跑了 dev。
+8. ⏳ **前置已部分到位**：D 引擎已交（PR #63 合入 `35bbc194`，`node scripts/check-engine-contract.mjs` 17 PASS / 0 FAIL）；`data/stores.json` 已进 main（PR #37）。**但未重跑**：仍需 B 现场数据（#10/#65，10 点位仍全 `public`）才能覆盖 A09「缺 entrance」/ A10「unverified」分支；仍需 A 在浏览器执行 `window.__dashboard.bindWorld(world)` 重跑 A04–A07 真值链路。引擎契约 PASS 不顶替 A 侧复核，本步未勾。
+9. ✅ **生产构建复核（11-28，main）**：`npm run build` 退出 0（Vite 8.3.8 / 25 modules / 4 chunks：three-core 225.67kB、three-webgl 352.59kB、three-addons 22.13kB、index 50.21kB，无体积告警）；`dist/data/stores.json` 落位 4399B 与源一致；附 `check-stores.mjs`（10 点位全过）与 `check-engine-contract.mjs`（17 PASS / 0 FAIL）输出。证据与复现方式见 §7。**边界**：`preview` 部署复核、带完整 public 素材的最终包未在本机跑，构建通过不等于上线。
 10. ⏳ 12-03 冻结前把 7/8/9 步的重跑结果回填本表；不通过的行按 §4 模板开缺陷。
 
 ## 7. 本次复核环境与复现方式
@@ -160,3 +161,16 @@
 > **复核探针已入库（#53）：`scripts/check-acceptance-cdp.mjs`**，零依赖，用法见 `RUNBOOK.md`「浏览器验收探针」一节。
 >
 > 首次入库时的实测边界（必须写明，不许当成全通过）：2026-11-28 本机 SwiftShader 软渲染下跑全量 8 项，`boot` / `A04` / `A06` PASS，`A01` / `A02` / `A07` / `A12` / `A12-5` 因 `evaluate` 超时判 **WARN**（软渲染 WebGL 重绘阻塞主线程，**判据未判定，不是 FAIL**）；看板子集（`boot` + `A06` + `A12`）复跑 PASS 3 / FAIL 0 / SKIP 1。GPU 机复跑前，本表不得把 A01/A02/A07 说成「脚本已验」。
+
+### 11-28 生产构建复核（补 §6 待办 9）
+
+**环境**（2026-11-28，main 工作树；Node `v22.13.1` / npm `11.9.0`）：从 main 拉取源码文本（69 个文件，含 `src/` `scripts/` `data/` 与构建配置；`public/` 素材未拉取，不影响构建与门禁结论），`npm install --prefer-offline` 装 18 包，`npm run build`。
+
+| 命令 | 输出摘要 | 结论 |
+| --- | --- | --- |
+| `npm run build` | `vite v8.3.8` / `✓ 25 modules transformed` / built in 148ms；4 chunks：three-core 225.67kB、three-webgl 352.59kB、three-addons 22.13kB、index 50.21kB，无体积告警 | 退出 0，生产构建通过 |
+| `ls dist/data/stores.json` | 存在，4399B，与 `data/stores.json` 字节一致（`vite.config.js` 的 `copy-data-dir` 插件生效） | `dist/data` 落位通过 |
+| `node scripts/check-stores.mjs` | `校验 data/stores.json: 10 个点位` / `[OK] 字段/楼层/id/source 全部合规` | 退出 0，结构合规（真实性仍须 A03/A10 人工判） |
+| `node scripts/check-engine-contract.mjs` | `PASS 17 / FAIL 0 / WARN 0 / SKIP 0`；含小样本 `n=8<30 → lossRate=null`、守恒 `sampleSize=seated+lost`、确定性等硬项 | 退出 0，引擎接口契约达标 |
+
+> **层级声明**：以上为 A 侧独立执行的**构建期 / 命令行级**复核，属「单元 + 生产构建」层级。**不替代**浏览器验收（A01–A12）、不替代 A04–A07 的 `bindWorld` 真值重跑、不替代 GPU 帧率判定、也不替代 `preview` 部署验证。`public/` 素材未随本次拉取，最终带素材包未在机上重建——此项以「构建通过 / 数据落位」为限，不写「完整生产包已验」。
