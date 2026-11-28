@@ -10,6 +10,10 @@
 
 const CAVEAT = '基于模拟数据的规则推演，非真实经营数据';
 
+// A12-5：缺键 = 未知（null），不是 0 / 1。
+// 未知量以「未提供」呈现，依赖它的规则不触发，避免把缺数据说成真实观测。
+const pct = (v, label) => (v == null ? `${label} 未提供` : `${label} ${(v * 100).toFixed(0)}%`);
+
 /**
  * @param {object} input
  * @param {object} input.metrics   D010 契约对象
@@ -23,7 +27,7 @@ export function advisor({ metrics, scenario, baseline } = {}) {
   const lossRate = m.lossRate;
   const aux = m.aux || {};
   const detail = m.detail || {};
-  const censored = m.censored ?? 0;
+  const censored = m.censored ?? null;
 
   // 规则 1：样本不足，不发建议
   if (n < 30 || lossRate == null) {
@@ -37,31 +41,39 @@ export function advisor({ metrics, scenario, baseline } = {}) {
     };
   }
 
-  const seated = detail.seated ?? 0;
-  const lost = detail.lost ?? 0;
-  const denominator = seated + lost;
-  const censoredRatio = denominator > 0 ? censored / denominator : 0;
-  const skipOutRate = aux.skipOutRate ?? (aux.skippedCount && denominator ? aux.skippedCount / denominator : 0);
-  const idleTableRatio = aux.idleTableRatio ?? (1 - (aux.seatUtilization ?? 0));
-  const avgWait = aux.avgWait ?? 0;
-  const reflowSuccess = aux.reflowSuccess ?? 0;
+  const seated = detail.seated ?? null;
+  const lost = detail.lost ?? null;
+  const denominator = seated != null && lost != null ? seated + lost : 0;
+  const censoredRatio = censored != null && denominator > 0 ? censored / denominator : null;
+
+  // 只有真实存在的值（含可由真实值推导的量）才参与判定；无任何来源时留 null
+  const skipOutRate = aux.skipOutRate != null
+    ? aux.skipOutRate
+    : (aux.skippedCount != null && denominator > 0 ? aux.skippedCount / denominator : null);
+  const idleTableRatio = aux.idleTableRatio != null
+    ? aux.idleTableRatio
+    : (aux.seatUtilization != null ? 1 - aux.seatUtilization : null);
+  const avgWait = aux.avgWait ?? null;
+  const reflowSuccess = aux.reflowSuccess ?? null;
 
   const evidence = [
     `流失率 ${(lossRate * 100).toFixed(1)}%`,
     `n=${n}`,
-    `跳号率 ${(skipOutRate * 100).toFixed(0)}%`,
-    `空桌率 ${(idleTableRatio * 100).toFixed(0)}%`,
-    `平均等待 ${avgWait.toFixed(0)}min`,
-    `回捞成功率 ${(reflowSuccess * 100).toFixed(0)}%`,
-    `删失 ${censored} 人`,
+    pct(skipOutRate, '跳号率'),
+    pct(idleTableRatio, '空桌率'),
+    avgWait == null ? '平均等待 未提供' : `平均等待 ${avgWait.toFixed(0)}min`,
+    pct(reflowSuccess, '回捞成功率'),
+    censored == null ? '删失 未提供' : `删失 ${censored} 人`,
   ];
 
   const actions = [];
   let headline = `流失率 ${(lossRate * 100).toFixed(1)}%，需结合指标找主因`;
-  let problem = `当前 ${n} 个样本，入座 ${seated}、流失 ${lost}`;
+  let problem = seated != null && lost != null
+    ? `当前 ${n} 个样本，入座 ${seated}、流失 ${lost}`
+    : `当前 ${n} 个样本，入座/流失明细未提供`;
 
   // 规则 2：桌型供给错配
-  if (skipOutRate > 0.25 && idleTableRatio < 0.30) {
+  if (skipOutRate != null && idleTableRatio != null && skipOutRate > 0.25 && idleTableRatio < 0.30) {
     headline = '2 人桌供给错配是流失主因';
     problem = `跳号率 ${(skipOutRate * 100).toFixed(0)}% 偏高，同时空桌率仅 ${(idleTableRatio * 100).toFixed(0)}%——桌型对不上`;
     actions.push({
@@ -72,7 +84,7 @@ export function advisor({ metrics, scenario, baseline } = {}) {
   }
 
   // 规则 3：回捞窗口失效
-  if (avgWait > 25 && reflowSuccess < 0.40) {
+  if (avgWait != null && reflowSuccess != null && avgWait > 25 && reflowSuccess < 0.40) {
     headline = '回捞窗口失效，过号顾客流失';
     problem = `平均等待 ${avgWait.toFixed(0)}min > 25，但回捞成功率仅 ${(reflowSuccess * 100).toFixed(0)}%`;
     actions.push({
@@ -83,7 +95,7 @@ export function advisor({ metrics, scenario, baseline } = {}) {
   }
 
   // 规则 4：空桌与流失并存
-  if (idleTableRatio > 0.35 && lossRate > 0.20) {
+  if (idleTableRatio != null && idleTableRatio > 0.35 && lossRate > 0.20) {
     headline = '空桌与流失并存，引流动线有问题';
     problem = `空桌率 ${(idleTableRatio * 100).toFixed(0)}%，同时流失率 ${(lossRate * 100).toFixed(1)}%`;
     actions.push({
@@ -94,7 +106,7 @@ export function advisor({ metrics, scenario, baseline } = {}) {
   }
 
   // 规则 5：统计偏差提示
-  if (censoredRatio > 0.30) {
+  if (censoredRatio != null && censoredRatio > 0.30) {
     actions.push({
       text: '延长观察窗口再判（删失比例过高）',
       expected: `删失 ${censored} 人占分母 ${(censoredRatio * 100).toFixed(0)}%，需更大样本`,
