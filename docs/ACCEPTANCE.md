@@ -120,6 +120,8 @@
 - **RISK-003**（已缓解 / PR #44，展示风险）— 对应 A07：推演区**初始参数全为 0**，`启用前` 与 `启用后` 都是 31.7%、delta 0.0pp。逻辑正确，但演示时若不调滑块，镜头里是「无变化」，评委可能误读为推演失效。**修复**：C 在 PR #44 把滑块默认改为 增加 2 人桌=4 / 降低到达率=0 / 延长容忍=10，首屏即有非零 delta。录屏脚本仍由 A 负责，按实际画面调整旁白。
 - **RISK-004**（已关闭 / 文档口径，11-28 A 回写）— 对应 A11：判据原文「外部视角可见完整建筑外壳」与 D013「朝相机两面剖切」冲突。实测自 11-27 起即按 D013 执行；本次已把 A11 字面判据改为「外壳存在且剖切方式符合 D013（朝相机 +x/+z 两面）」，并同步 §2 A11 行、§2 说明与 `STATUS.md`。**判定与证据不变**，仅消除文档口径冲突。
 - **RISK-005**（已缓解 / PR #44，数据口径）— 对应 A10：10 点位 `verified` 全为 `public`，UI 面板只显示「来源 E28 · public」英文词；A10 要求的「`unverified` 点位 UI 有示意位置提示」这条分支从未出现。**修复**：C 在 PR #44 把 `public` 映射为中文「位置示意（未现场核）」、`unverified` 映射为「示意位置，待现场核实」。**仍待**：B 交 `stores.json` 后补测 `unverified` 分支（当前 10 点位全 `public`，该 UI 分支仍无真实数据触发）。
+- **DEF-DASH-01**（open / 11-28 A 复核发现 / 派 C #73）— 对应 A04–A07 真值链路：`dashboard.bindWorld(realWorld)` 只 `pushEvents(world.tick(0))`，未把 `events` 重置为 `world.getEvents()`。直接 bind 时看板事件 43 条（mock 41 + 真引擎 2）；先 `tick(120)` 再 bind 时看板事件仍是 mock 的 41 条（真引擎实为 161 条）。**A04–A07 真值链路因此判不了通过**（事件流非真引擎）。引擎本身无错（120min 真值 50.0% / n=40 / censored=7）。
+- **DEF-DASH-02**（open / 11-28 A 复核发现 / 派 C #73，critical）— 对应 A06：先 `tick(120)` 再 bind 时，指标卡显示真引擎的 50.0%（detail.lost=20），但事件流里 lost 仅 3 条（mock 残留）——同屏「流失 20 人」与「3 条流失事件」并存，A06「流失计入指标」**自相矛盾**。根因同 DEF-DASH-01。修复后须以 `node scripts/check-dashboard-engine.mjs` 复验至「缺陷 0 项」。
 
 ## 5. 复核与报告
 
@@ -140,6 +142,7 @@
 6. ✅ **A04–A07**（11-27，PR #33 已合）：D010 四要素 + n<30 规则 + 推演 delta，并确认 DEF-001/DEF-002 已修。
 7. ⏳ 找有 GPU 的机器复测 1440×900 ≥30fps，通过后关 Issue #19。
 8. ⏳ **前置已部分到位**：D 引擎已交（PR #63 合入 `35bbc194`，`node scripts/check-engine-contract.mjs` 17 PASS / 0 FAIL）；`data/stores.json` 已进 main（PR #37）。**但未重跑**：仍需 B 现场数据（#10/#65，10 点位仍全 `public`）才能覆盖 A09「缺 entrance」/ A10「unverified」分支；仍需 A 在浏览器执行 `window.__dashboard.bindWorld(world)` 重跑 A04–A07 真值链路。引擎契约 PASS 不顶替 A 侧复核，本步未勾。
+   - **11-28 真引擎链路预演（Node 无头 / 未过）**：A 用最小 DOM stub 在 Node 把真引擎绑进看板（`node scripts/check-dashboard-engine.mjs`），发现 `bindWorld` 集成缺陷 DEF-DASH-01/02（已派 C #73）：引擎真值正确（50.0% / n=40 / censored=7 / detail.lost=20），但看板事件流仍是 mock（lost 仅 3 条），A04–A07 真值链路**判不了通过**。**待 C 修复后重跑至「缺陷 0 项」，届时 A04–A07 方可从「界面链路」升「真引擎通过」**。本步维持未勾。
 9. ✅ **生产构建复核（11-28，main）**：`npm run build` 退出 0（Vite 8.3.8 / 25 modules / 4 chunks：three-core 225.67kB、three-webgl 352.59kB、three-addons 22.13kB、index 50.21kB，无体积告警）；`dist/data/stores.json` 落位 4399B 与源一致；附 `check-stores.mjs`（10 点位全过）与 `check-engine-contract.mjs`（17 PASS / 0 FAIL）输出。证据与复现方式见 §7。**边界**：`preview` 部署复核、带完整 public 素材的最终包未在本机跑，构建通过不等于上线。
 10. ⏳ 12-03 冻结前把 7/8/9 步的重跑结果回填本表；不通过的行按 §4 模板开缺陷。
 
@@ -176,3 +179,17 @@
 | `node scripts/check-engine-contract.mjs` | `PASS 17 / FAIL 0 / WARN 0 / SKIP 0`；含小样本 `n=8<30 → lossRate=null`、守恒 `sampleSize=seated+lost`、确定性等硬项 | 退出 0，引擎接口契约达标 |
 
 > **层级声明**：以上为 A 侧独立执行的**构建期 / 命令行级**复核，属「单元 + 生产构建」层级。**不替代**浏览器验收（A01–A12）、不替代 A04–A07 的 `bindWorld` 真值重跑、不替代 GPU 帧率判定、也不替代 `preview` 部署验证。`public/` 素材未随本次拉取，最终带素材包未在机上重建——此项以「构建通过 / 数据落位」为限，不写「完整生产包已验」。
+
+### 11-28 A04–A07 真引擎链路预演（Node 无头 / 发现集成缺陷）
+
+**方法**：A04–A07 判据只涉及「事件流内容 + 指标卡文本 + 按钮交互」，与像素渲染无关；复核机无 GPU，故用最小 DOM stub（`scripts/check-dashboard-engine.mjs` 内置）在 Node 把**真引擎**（`src/engine/index.js::createWorld()`）绑进看板，确定性复核 `bindWorld` 集成层。这是 D #67（引擎侧自测）与 C #68（advisor 逻辑）都覆盖不到的层。
+
+**命令与输出**：
+
+| 命令 | 输出摘要 | 结论 |
+| --- | --- | --- |
+| `node scripts/check-dashboard-engine.mjs` | 基线：引擎真值 50.0% / n=40 / censored=7 / detail.lost=20；直接 bind 看板事件 43（mock 41 + 真 2）；tick 后 bind 看板事件 41（真 161）、看板 lost 3（真 20）、指标 50.0%；`[复核结论] 缺陷 2 项：DEF-DASH-01(high), DEF-DASH-02(critical)` | 诊断模式 exit 0，缺陷已定位 |
+| `node scripts/check-dashboard-engine.mjs --strict` | 同上 + `[FAIL] 集成缺陷未修尽` | exit 1（缺陷未修前的预期门禁态） |
+| A04 释放空桌（真引擎） | 新增 called=5、skipped=7（reason 全非空） | 引擎匹配/跳号逻辑正确 |
+
+> **层级声明与边界**：本次为 A 侧**集成层（Node 无头）**复核，证明「引擎逻辑对、看板切换世界有缺陷」。**A04–A07 状态不变**（仍「界面链路通过 / 真引擎待重跑」）——真值链路因 DEF-DASH-01/02 **判不了通过**，须待 C 修 `src/dashboard.js`（Issue #73）后复跑至「缺陷 0 项」并补浏览器复核方可转绿。引擎契约 17 PASS、A04 单测通过均只作线索，不顶替本步。帧率判据（#19）仍因无 GPU 未判。
