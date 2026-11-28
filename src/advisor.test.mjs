@@ -69,3 +69,33 @@ test('所有建议都带数字', () => {
   assert.ok(r.caveat.includes('模拟数据'));
   assert.equal(r.source, 'rule');
 });
+
+// A12-5：缺键 = 未知，不得编造数字（docs/A12-5-FIX-SPEC.md §三）
+
+test('A12-5-a: aux 全缺不产出假百分数、不触发规则', () => {
+  const r = advisor({ metrics: { lossRate: 0.25, sampleSize: 40, censored: 3, detail: { seated: 30, lost: 10 } }, scenario: {}, baseline: null });
+  assert.ok(!r.headline.includes('空桌'), r.headline);
+  assert.ok(r.evidence.some((e) => e.includes('空桌率 未提供')), r.evidence.join('|'));
+  assert.ok(r.evidence.some((e) => e.includes('回捞成功率 未提供')), r.evidence.join('|'));
+  assert.ok(!r.evidence.some((e) => /跳号率 \d+%|空桌率 \d+%|回捞成功率 \d+%/.test(e)), r.evidence.join('|'));
+  assert.deepEqual(r.actions, [{ text: '无明确建议，继续观察', expected: '—', basis: '当前指标未触发任何规则' }]);
+});
+
+test('A12-5-b: aux 部分缺键不触发回捞规则', () => {
+  const r = advisor({ metrics: { lossRate: 0.3, sampleSize: 50, censored: 5, aux: { avgWait: 30 }, detail: { seated: 35, lost: 15 } }, scenario: {}, baseline: null });
+  assert.ok(!r.headline.includes('回捞'), r.headline);
+  assert.ok(r.evidence.includes('回捞成功率 未提供'), r.evidence.join('|'));
+  assert.ok(!r.actions.some((a) => a.basis.includes('reflowSuccess')));
+});
+
+test('A12-5-c: 有真实来源时推导仍生效', () => {
+  const r = advisor({ metrics: { lossRate: 0.317, sampleSize: 60, censored: 6, aux: { seatUtilization: 0.78, skippedCount: 18, avgWait: 18, reflowSuccess: 0.5 }, detail: { seated: 41, lost: 19 } }, scenario: {}, baseline: null });
+  assert.ok(r.evidence.includes('空桌率 22%'), r.evidence.join('|'));
+  assert.ok(r.evidence.includes('跳号率 30%'), r.evidence.join('|'));
+});
+
+test('A12-5-d: detail 缺键不输出「入座 0、流失 0」', () => {
+  const r = advisor({ metrics: { lossRate: 0.25, sampleSize: 40, censored: 3 }, scenario: {}, baseline: null });
+  assert.ok(r.problem.includes('明细未提供'), r.problem);
+  assert.ok(!r.problem.includes('入座 0'), r.problem);
+});
