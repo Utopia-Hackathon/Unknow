@@ -1,6 +1,6 @@
 name: check
 
-# E-04 工程门禁（Issue #18）：build / assets / data 三个 job。
+# 工程门禁：build / assets / data / engine 四个 job。
 # 边界：只做校验，不做部署；CI 绿 ≠ 验收绿（见 docs/CONTRACTS.md §八）。
 on:
   push:
@@ -40,3 +40,16 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/check-stores.mjs
+
+  engine:
+    name: engine · 决策引擎契约与单测
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 引擎单测
+        run: node --test src/engine/__tests__/*.test.mjs
+      - name: 引擎契约检查
+        run: node scripts/check-engine-contract.mjs --require
