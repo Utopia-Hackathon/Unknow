@@ -1,8 +1,26 @@
 import { defineConfig } from 'vite';
-import { existsSync, cpSync } from 'node:fs';
+import { existsSync, cpSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const STORES_JSON = resolve(process.cwd(), 'data/stores.json');
+const FIELD_TEXTURE_DIR = resolve(process.cwd(), 'public/assets/zhenghongcheng/field-1129');
+
+// 11-29 现场门头图的实际到货清单。
+// 交付贴图由 textureManifest.js 指向 field-1129/*.webp，但拍摄可能不全
+// （s10 CGV 按 D013 本就合法留空）。不存在的文件不去请求——
+// 浏览器会把 404 记成 console.error，JS 拦不住，而 FREEZE_CHECKLIST 把
+// 「演示时弹错」列为阻塞级。缺图静默走文字招牌即可。
+function listFieldTextures() {
+  if (!existsSync(FIELD_TEXTURE_DIR)) return [];
+  try {
+    return readdirSync(FIELD_TEXTURE_DIR)
+      .filter((f) => /\.(webp|png|jpe?g)$/i.test(f))
+      .map((f) => `field-1129/${f}`)
+      .sort();
+  } catch {
+    return [];
+  }
+}
 
 // B-01 的 data/stores.json 在项目根目录、不在 public/ 下，
 // vite build 不会自动把它拷进 dist —— 上线后 fetch 会 404。
@@ -25,10 +43,11 @@ function copyDataDir() {
 // 不是老版本的 build.rollupOptions.output.manualChunks。
 export default defineConfig({
   base: './',
-  // 构建期告知前端「数据文件在不在」：不存在就不 fetch，
-  // 否则线上会留一条 404（浏览器记的 console 错误无法被 catch 吞掉）。
+  // 构建期告知前端「数据文件 / 现场贴图在不在」：不存在就不请求，
+  // 否则线上会留 404（浏览器记的 console 错误无法被 catch 吞掉）。
   define: {
     __HAS_STORES_DATA__: JSON.stringify(existsSync(STORES_JSON)),
+    __FIELD_TEXTURE_FILES__: JSON.stringify(listFieldTextures()),
   },
   plugins: [copyDataDir()],
   build: {
