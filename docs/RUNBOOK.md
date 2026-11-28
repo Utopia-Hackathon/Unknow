@@ -1,8 +1,9 @@
 # 运行说明
 
-版本：v0.1
-更新日期：2026-11-24
+版本：v0.2
+更新日期：2026-11-28
 适用基准：AGENTS.md v0.1、提交手册 v0.1
+上一版：v0.1（2026-11-24）。v0.2 含两批改动：① Issue #87 收口（工具链取值填实 / 迁移段与备份恢复指向 `BACKUP_RESTORE.md` / 部署段补 preview 实测与「公网未执行」边界）；② 22:40 独立复跑后订正单测数 57→66。
 
 本文维护**真实存在、跑得通**的命令与环境边界。
 本文不维护：规划中的命令、目标描述、产品范围（见 `PROJECT_PLAN.md`）。
@@ -44,7 +45,7 @@ npm run preview      # 预览构建产物
 | `node scripts/check-stores.mjs` | `data/stores.json` 字段与坐标契约校验 | CI `data` job 每次 PR 执行 |
 | `node --test src/engine/__tests__/*.test.mjs` | 决策引擎单测 | CI `engine` job 使用 Node 22 执行 |
 | `node scripts/check-engine-contract.mjs --require` | 引擎接口契约（CONTRACTS §三 + METRICS_DEF §6） | CI `engine` job 使用验收模式，入口缺失也会使 job 失败 |
-| `node --test src/*.test.mjs src/engine/__tests__/*.test.mjs` | 单测全套（含 `perf.test.mjs` 帧率降级逻辑 11 条、`floorPlan.test.mjs` 几何不变量 11 条） | 2026-11-28 实测 **57/57 全过**；**逻辑单测不等于 GPU 帧率判据**（#19 仍待 GPU 机） |
+| `node --test src/*.test.mjs src/engine/__tests__/*.test.mjs` | 单测全套（8 个文件：`advisor` 11 / `floorPlan` 11 / `mockWorld` 6 / `perf` 11 / `textureManifest` 8 / `scenario` 5 / `world` 9 / `acceptance-criteria` 5） | 2026-11-28 22:40 在 main `a33ee35` 快照实测 **66/66 全过、0 fail、0 skipped**。**订正**：此前记「57/57」是 #78 合入前（7 个文件）的旧数；本次按 8 个文件逐个跑并加总核对（11+11+6+11+8+5+9+5=66）。**逻辑单测不等于 GPU 帧率判据**（#19 仍待 GPU 机） |
 | `node scripts/check-acceptance-cdp.mjs --port 9222` | 浏览器验收探针（A01/A02/A04/A06/A07/A12，需先起 Chrome 调试端口） | 2026-11-28 新增（#53）；本机软渲染下全量有 5 项超时 WARN，看板子集 PASS 3 / FAIL 0 / SKIP 1 |
 | `node scripts/check-dashboard-engine.mjs` | 真引擎集成复核（A04–A07，Node 无头 DOM stub） | 2026-11-28 新增（#74）；当前报 DEF-DASH-01/02 两缺陷（派 C #73），引擎真值 50.0%/n=40；`--strict` 缺陷未修尽时 exit 1 |
 | **一键复跑索引** | `docs/EVIDENCE_INDEX.md` | 评委照表敲命令即可复现各判据；命令通过 ≠ 验收通过，判定仍以 `ACCEPTANCE.md` 为准 |
