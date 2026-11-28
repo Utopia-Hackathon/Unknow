@@ -1,0 +1,142 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-11-27",
+  "coordinateSystem": "米；原点=楼板中心，x 向东为正，z 向南为正；原点为楼层外轮廓的几何中心，中庭椭圆中心 (6, -4)、半轴 8.6×6.2；坐标与 entrance 为示意值，待 11-29 现场核实",
+  "floors": [
+    { "id": "f6", "name": "6F 品味", "level": 6, "y": 0 },
+    { "id": "f7", "name": "7F 珍馐", "level": 7, "y": 4 },
+    { "id": "f8", "name": "8F 欢聚", "level": 8, "y": 8 }
+  ],
+  "stores": [
+    {
+      "id": "s01",
+      "name": "巴奴毛肚火锅",
+      "floor": "f8",
+      "category": "火锅",
+      "x": -2.0,
+      "z": 16.5,
+      "entrance": { "x": -1.42, "z": 15.01 },
+      "verified": "public",
+      "source": "E28（L807）+ E27",
+      "storefront": "",
+      "note": "导览牌位于 8F 南侧；位置示意，11-29 核铺位与门口坐标"
+    },
+    {
+      "id": "s02",
+      "name": "太二酸菜鱼",
+      "floor": "f8",
+      "category": "酸菜鱼",
+      "x": 15.0,
+      "z": 0.0,
+      "entrance": { "x": 13.54, "z": -0.65 },
+      "verified": "public",
+      "source": "E28（L809A）+ E29",
+      "storefront": "",
+      "note": "导览牌位于中庭东南侧；无门头照，11-29 补拍；位置示意"
+    },
+    {
+      "id": "s03",
+      "name": "曼玉融合餐厅",
+      "floor": "f8",
+      "category": "融合菜",
+      "x": 3.0,
+      "z": -16.5,
+      "entrance": { "x": 3.37, "z": -14.94 },
+      "verified": "public",
+      "source": "E28（L814）+ E27",
+      "storefront": "",
+      "note": "导览牌位于中庭北侧；位置示意，11-29 核铺位与门口坐标"
+    },
+    {
+      "id": "s04",
+      "name": "炉小哥烤肉",
+      "floor": "f8",
+      "category": "烤肉",
+      "x": -12.5,
+      "z": -14.0,
+      "entrance": { "x": -11.09, "z": -13.24 },
+      "verified": "public",
+      "source": "E28（L803）+ E27",
+      "storefront": "",
+      "note": "导览牌位于 8F 西北角；位置示意，11-29 核铺位与门口坐标"
+    },
+    {
+      "id": "s05",
+      "name": "胖哥俩肉蟹煲",
+      "floor": "f8",
+      "category": "肉蟹煲",
+      "x": 17.0,
+      "z": 11.5,
+      "entrance": { "x": 16.07, "z": 10.2 },
+      "verified": "public",
+      "source": "E29（工商登记 L8-S7A，2026-10-29 仍开业）",
+      "storefront": "",
+      "note": "无门头照，11-29 补拍；位置示意"
+    },
+    {
+      "id": "s06",
+      "name": "滨寿司 HAMA-SUSHI",
+      "floor": "f8",
+      "category": "回转寿司",
+      "x": 19.0,
+      "z": 4.5,
+      "entrance": { "x": 17.66, "z": 3.62 },
+      "verified": "public",
+      "source": "E29（大河报，2026-06-30 开业，8F）",
+      "storefront": "",
+      "note": "无门头照，11-29 补拍并记录等位情况；位置示意"
+    },
+    {
+      "id": "s07",
+      "name": "麻布食堂 Azabu",
+      "floor": "f7",
+      "category": "日料",
+      "x": 3.5,
+      "z": 7.5,
+      "entrance": { "x": 3.84, "z": 5.94 },
+      "verified": "public",
+      "source": "E26（区级官媒，7F）",
+      "storefront": "",
+      "note": "导览牌 L708，中庭南侧；位置示意，11-29 核门口坐标"
+    },
+    {
+      "id": "s08",
+      "name": "豆捞坊",
+      "floor": "f7",
+      "category": "潮汕牛肉火锅",
+      "x": -6.5,
+      "z": 1.5,
+      "entrance": { "x": -5.04, "z": 0.86 },
+      "verified": "public",
+      "source": "E28（L709）+ E29（正弘城店在营）",
+      "storefront": "",
+      "note": "导览牌 L709，中庭西侧；无门头照，11-29 补拍；位置示意"
+    },
+    {
+      "id": "s09",
+      "name": "犇小喜鲜活火锅自助",
+      "floor": "f7",
+      "category": "火锅自助",
+      "x": 11.5,
+      "z": 15.0,
+      "entrance": { "x": 11.06, "z": 13.46 },
+      "verified": "public",
+      "source": "E26（2026-11-16 开业，7F）",
+      "storefront": "",
+      "note": "11-16 开业为宣传口径，存续待核；无门头照，11-29 补拍；位置示意"
+    },
+    {
+      "id": "s10",
+      "name": "CGV 影城",
+      "floor": "f6",
+      "category": "影院",
+      "x": -13.0,
+      "z": 0.0,
+      "entrance": { "x": -11.43, "z": -0.33 },
+      "verified": "public",
+      "source": "E29（Trip.com 楼层分布：CGV 6F）",
+      "storefront": "",
+      "note": "6F 西侧整片，非餐饮；无门头照，走文字招牌降级；位置示意"
+    }
+  ]
+}
