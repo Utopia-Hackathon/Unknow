@@ -1,11 +1,12 @@
 # 验收清单
 
-版本：v0.3.4（11-27 A 侧独立复核版 + 11-28 口径勘误 + 11-28 生产构建复核回填 + 11-28 真引擎链路复核回填）
+版本：v0.3.5（11-27 A 侧独立复核版 + 11-28 口径勘误 + 11-28 生产构建复核回填 + 11-28 真引擎链路复核回填 + 11-28 交付材料收口回填）
 更新日期：2026-11-28
 > **v0.3.1 勘误（11-28）**：§3 五行交付项的落盘状态表述已按 main 实际提交号更新（A-02 五份源稿均已入库，见各行）。**不改任何验收状态、不新增通过行**；§2 的复核证据保持原样。核据：`3a1fb456` / `c38e05d2` / `f97cca5c` 的 `git log -- <path>`。
 > **v0.3.2 口径勘误（11-28）**：A11 判据原文「外部视角可见完整建筑外壳」与 D013「朝相机 +x/+z 两面剖切」冲突，已按 D013 回写为「外壳存在且剖切方式符合 D013」。**复核结论与证据不变**——11-27 实测即按 D013 判通过，本次只修字面判据与风险登记（RISK-004 关闭），不新增通过行、不改任何判定层级。
 > **v0.3.3 生产构建复核回填（11-28）**：A 在 main 上执行 `npm run build` 与三个门禁脚本，拿到生产构建与契约真值（详见 §7「11-28 生产构建复核」）。回填 §3「生产构建复核」与 §6 待办 9、修正已过时的 RISK-002 登记。**不改 §2 任何验收状态层级、不新增通过行**——A04–A07 仍是「界面链路通过 / 引擎真值待重跑」，引擎契约 17 PASS 只作线索，不顶替 A 侧浏览器复核；帧率判据仍因本机无 GPU 未判。
 > **v0.3.4 真引擎链路复核回填（11-28，21:20）**：C 的 PR #79（A12-5）/ #81（DEF-DASH-01/02）已合入 main `0110749e`；A 在隔离目录用 REST 拉的 main 源码重跑 `scripts/check-dashboard-engine.mjs`，`defects: []` / `--strict` exit 0，`node --test src/advisor.test.mjs` 11/11 PASS。据实测把 A04–A07 从「界面链路通过 / 真引擎待重跑」升为「真引擎链路通过」，A12 从「待判」升为「通过」，§6 待办 8 勾选。**层级边界**：这是 Node 无头 DOM stub 集成层复核，不替代浏览器复核与 GPU 帧率判定；A09/A10 缺真实数据分支、帧率 #19 均不变。
+> **v0.3.5 交付材料收口回填（11-28，22:20）**：§3 四行（可访问样例 / 启动配置部署说明 / 素材来源 / 备份恢复）按实际补齐情况更新，**顺手修掉 v0.3.4 漏改的一处**——§3 汇总行仍写「A04–A07 界面链路通过 / 真值待引擎」，已改为「真引擎链路通过」；新增 §7「11-28 本地 preview 复核」与 §6 待办 11。**不新增任何验收通过行**：preview 只证明静态产物可服务，页面渲染与 console 洁净度仍未判定；帧率 #19 仍 open。
 适用基准：开发书 v0.1 §6 验收定义、AGENTS.md v0.1
 
 本文维护逐项验收状态与证据，是**唯一结果记录**。
@@ -83,12 +84,12 @@
 
 | 项 | 状态 | 备注 |
 | --- | --- | --- |
-| 可访问 / 可运行的完整样例 | 部分完成 | dev 可跑（11-27 复核即跑 dev）；PR #29 已修生产 `data/stores.json` 404。**11-28 A 已补生产构建复核**：`npm run build` 退出 0、Vite 8.3.8 / 25 modules / 4 chunks 无体积告警；`dist/data/stores.json` 落位（4399B，与源一致）——证据见 §7。**部署 / preview 复核仍待**，构建通过不等于已上线 |
+| 可访问 / 可运行的完整样例 | 部分完成 | dev 可跑（11-27 复核即跑 dev）；PR #29 已修生产 `data/stores.json` 404。**11-28 A 已补生产构建复核**：`npm run build` 退出 0、Vite 8.3.8 / 25 modules / 4 chunks；`dist/data/stores.json` 落位（4399B）。**11-28 晚补本地 preview 复核**：在 main 快照上 `vite preview --port 4173` 起服务，`/`、5 个入口资源、`/data/stores.json`、抽样素材全部 200（证据见 §7）。**边界**：本机静态预览 ≠ 公网部署，公网入口仍未定 |
 | 可运行代码与依赖锁文件 | 已具备 | main 有 `package.json` + `package-lock.json`；A 未逐项复核干净安装 |
-| 启动、配置、迁移与部署说明 | 部分完成 | `docs/RUNBOOK.md` 已补真实启动与四条检查命令（PR #42）；照做可行性未全流程验证 |
-| 素材来源与使用范围记录 | 部分完成 | `docs/SOURCES.md` + `docs/RESEARCH.md`；A-02 五份源稿 v0.2 已入 main（`3a1fb456`，11-27；`AI_USAGE`/`VIDEO_SCRIPT` 后续 `f97cca5c` 订正） |
-| 实际验收结果及未完成项 | 部分完成 | 本表 v0.3：**6 行「通过（浏览器 / A 独立复核）」（A01/A02/A03/A08/A10/A11）、4 行界面链路通过（A04–A07，真值待引擎）、1 行部分通过（A09）** |
-| 数据与素材备份、恢复步骤 | 未完成 | 待补 |
+| 启动、配置、迁移与部署说明 | 已补齐（待全流程演练） | `docs/RUNBOOK.md` 已补真实启动与四条检查命令（PR #42）；**11-28 补齐工具链取值（Node 22.x / npm + lock / Vite 8.3.8 / 无数据库 / 无原生依赖）、说明「本项目不读环境变量」、把迁移与备份恢复指向 `BACKUP_RESTORE.md`、补本地 preview 实测**。仍未做的是「新人照文档从零装一遍」的端到端演练 |
+| 素材来源与使用范围记录 | 部分完成 | `docs/SOURCES.md` + `docs/RESEARCH.md`；A-02 五份源稿 v0.2 已入 main（`3a1fb456`，11-27；`AI_USAGE`/`VIDEO_SCRIPT` 后续 `f97cca5c` 订正）。**11-28 修 `SOURCES.md` S01 的两处 `[待补]`**：截图原件按本文件既有规则不入库，字节数/sha256 标注为「不适用」并写明引用范围 |
+| 实际验收结果及未完成项 | 部分完成 | 本表现行：**6 行「通过（浏览器 / A 独立复核）」（A01/A02/A03/A08/A10/A11）、4 行「真引擎链路通过（Node 无头集成层）」（A04–A07）、1 行部分通过（A09）、A12 通过（单元 + DOM 侧）**；帧率判据（#19）未判定，不写成通过 |
+| 数据与素材备份、恢复步骤 | 已完成（待队长确认） | **`docs/BACKUP_RESTORE.md` v1.0（11-28，A 侧）**：四要素齐备——前置快照取真实 commit/blob（`0110749e` / `8d88b0c4` 等）、回滚命令可复制执行、触发条件逐条写明、责任人 A；并区分「不可重建资产（现场实拍/手签件）」与「可从 main 重建（dist/、node_modules）」。**未演练破坏性回滚**，按「备份说明」而非「故障演练记录」看待 |
 | 简短演示材料 | 草稿完成 | `VIDEO_SCRIPT.md` 已入 main（`f97cca5c`）；条件镜头池仅在 12-03 对应验收行通过时解锁 |
 | 《痛点定义单》一页 | 草稿完成 | 官方必交（E23）；`docs/PAIN_POINT.md` 已入 main（`c38e05d2`，v1.0 定稿 11-26） |
 | AI 使用说明（附件07） | 草稿完成 | 预赛必交（E24）；`docs/AI_USAGE.md` v0.2 已入 main（`3a1fb456`；`f97cca5c` 订正）；最终勾选待 12-03 验收后 |
@@ -144,8 +145,9 @@
 7. ⏳ 找有 GPU 的机器复测 1440×900 ≥30fps，通过后关 Issue #19。
 8. ✅ **A04–A07 真引擎链路（11-28 21:20，main `0110749e`）**：D 引擎已交（PR #63，`check-engine-contract.mjs` 17 PASS）；`data/stores.json` 已进 main（PR #37）；C 的 #79/#81 已修 advisor A12-5 与 bindWorld 事件源缺陷。A 在隔离目录用 REST 拉取 main `0110749e` 源码重跑 `scripts/check-dashboard-engine.mjs` → `defects: []` / `--strict` exit 0，`node --test src/advisor.test.mjs` → 11/11 PASS。真引擎 161 事件与看板 161 事件同源、`metricsFromEngine=true`、指标「50.0%」；DEF-DASH-01/02 清零。A04–A07 已从「界面链路」升「真引擎链路通过」，A12 升「通过」。**本步勾选，但边界见下**。
    - **仍未覆盖**：B 现场数据（#10/#65，10 点位仍全 `public`）未到，A09「缺 entrance」/ A10「unverified」分支仍无真实数据触发；浏览器层真引擎复核（GPU 机 `window.__dashboard.bindWorld(world)` 实跑）未做，本次为 Node 无头 DOM stub 集成层。引擎契约 PASS 不顶替浏览器复核。
-9. ✅ **生产构建复核（11-28，main）**：`npm run build` 退出 0（Vite 8.3.8 / 25 modules / 4 chunks：three-core 225.67kB、three-webgl 352.59kB、three-addons 22.13kB、index 50.21kB，无体积告警）；`dist/data/stores.json` 落位 4399B 与源一致；附 `check-stores.mjs`（10 点位全过）与 `check-engine-contract.mjs`（17 PASS / 0 FAIL）输出。证据与复现方式见 §7。**边界**：`preview` 部署复核、带完整 public 素材的最终包未在本机跑，构建通过不等于上线。
+9. ✅ **生产构建复核（11-28，main）**：`npm run build` 退出 0（Vite 8.3.8 / 25 modules / 4 chunks：three-core 225.67kB、three-webgl 352.59kB、three-addons 22.13kB、index 50.21kB，无体积告警）；`dist/data/stores.json` 落位 4399B 与源一致；附 `check-stores.mjs`（10 点位全过）与 `check-engine-contract.mjs`（17 PASS / 0 FAIL）输出。证据与复现方式见 §7。**边界**：公网部署未做，构建通过不等于上线（本地静态 preview 已于 11-28 晚补验，见待办 11）。
 10. ⏳ 12-03 冻结前把 7/8/9 步的重跑结果回填本表；不通过的行按 §4 模板开缺陷。
+11. ✅ **交付材料收口 + 本地 preview 复核（11-28 22:20，main `a33ee35f`）**：在 main 快照（tarball 全量）上 `npm run build` 退出 0（25 modules、dist 261 个文件），`vite preview --port 4173` 起服务后 `/`、5 个入口资源、`/data/stores.json`、抽样素材全部 HTTP 200。同时补齐 `docs/BACKUP_RESTORE.md`（备份恢复四要素）、`docs/SOURCES.md`（S01 两处 `[待补]` 改「不适用 + 理由」）、`docs/RUNBOOK.md`（工具链取值 / 不读环境变量 / 备份指向 / preview 实测）、`docs/FREEZE_CHECKLIST.md`（11-28 预核附录，不改原 ☐）。**边界**：preview 是 127.0.0.1 本机静态服务，非公网；`public/assets/field-1129/` 8 张门头图仍未采集（B #10/#64），本次未验门头贴图表现。
 
 ## 7. 本次复核环境与复现方式
 
@@ -204,3 +206,18 @@ C 的 PR #79（A12-5）/ #81（DEF-DASH-01/02）合入后，A 在隔离目录 `D
 | `node --test src/advisor.test.mjs` | `tests 11 / pass 11 / fail 0`，含 A12-5-a~d 四条缺键断言 | A12-5 通过，缺键不再产出 100%/0% |
 
 > **层级声明与边界（11-28 21:20）**：11-27 首次复核为 A 侧**集成层（Node 无头）**，当时证明「引擎逻辑对、看板切换世界有缺陷」（DEF-DASH-01/02）。C 的 PR #81 修复后重跑 `defects: []` / `--strict` exit 0，真引擎 161 事件与看板 161 事件同源、`metricsFromEngine=true`、指标「50.0%」，**DEF-DASH-01/02 确认清零**。据此 A04–A07 升为「真引擎链路通过（Node 无头集成层）」，A12 升「通过（单元 + DOM 侧）」。**边界不变**：这是集成层复核，**不替代**真实浏览器复核（GPU 机 bindWorld 实跑）、不替代 GPU 帧率判定（#19 仍未判）、不替代 B 现场数据（A09/A10 缺真实分支）；引擎契约 17 PASS 只作线索。证据全文见 `Unknow-A04A07真引擎复核-20261128-2120.md`（仓库外留档）。
+
+### 11-28 本地 preview 与交付材料收口复核（main `a33ee35f`，22:20）
+
+**为什么换环境跑**：本机 D 盘当时 100% 满（仅剩 9.7MB），`vite` 写 `node_modules/.vite-temp` 直接 `ENOSPC`；改用 C 盘临时目录 `%TEMP%\u87src\main-src\`，以 `tarball/main` 全量拉取（40.7MB、`public/` 254 个文件），`node_modules` 真实复制（61.2MB / 1613 文件，非 junction），`TMPDIR` 指向 C 盘。**本地工作树仍停在 `f9cb432`（落后 115 提交），全程未触碰**。
+
+| 命令 | 输出摘要 | 结论 |
+| --- | --- | --- |
+| `node node_modules/vite/bin/vite.js build` | `✓ 25 modules transformed`、`built in 3.07s`、exit 0；`dist/` 261 个文件 | 生产构建通过（Vite 8.3.8 / node v22.22.2） |
+| `vite preview --port 4173 --strictPort --host 127.0.0.1` | `Local: http://127.0.0.1:4173/` | 静态服务起得来 |
+| `curl /` | `status=200 bytes=2233` | 入口页面可取 |
+| `curl /assets/index-*.js`、`three-core`、`three-webgl`、`three-addons`、`index-*.css` | 5 个入口资源全部 `200`（50599 / 225675 / 352599 / 22132 / 7230 B） | 入口链路无 404 |
+| `curl /data/stores.json` | `200`，4399B | 生产路径的数据读取成立（PR #29 修复有效） |
+| `curl /assets/zhenghongcheng/storefronts/scenes/atrium-void.jpg` | `200`，217547B | 素材静态服务正常 |
+
+> **层级声明与边界（11-28 22:20）**：这是**本机静态预览**（`vite preview` + curl 取状态码），证明「构建产物能起、入口与数据不 404」。**不替代**：公网部署验证（入口仍未定，未执行）、浏览器运行时验收（无 `pageerror` / 无 `console.error` 仍需 GPU 机探针）、门头贴图表现（`public/assets/field-1129/` 8 张仍缺，B #10/#64 未交）。**未做的事写在前面**：没有跑无头浏览器加载页面，因此「页面真的渲染出来」这一条本次**未判定**，不得由 HTTP 200 推出。
