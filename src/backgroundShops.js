@@ -11,8 +11,8 @@ import { VERTICALS } from './floorPlan.js';
 // 扶梯：倾斜踏板 + 侧栏 + 玻璃挡板，够读出方向即可
 function createEscalator() {
   const g = new THREE.Group();
-  const stepMat = new THREE.MeshStandardMaterial({ color: 0x59616f, roughness: 0.6, metalness: 0.35 });
-  const railMat = new THREE.MeshStandardMaterial({ color: 0x2b3340, roughness: 0.5, metalness: 0.4 });
+  const stepMat = new THREE.MeshStandardMaterial({ color: 0xc0b9ac, roughness: 0.6, metalness: 0.35 });
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x5a564e, roughness: 0.5, metalness: 0.4 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x9fc4d8, transparent: true, opacity: 0.28, roughness: 0.15, metalness: 0.2,
   });
@@ -46,7 +46,7 @@ function createElevatorBank(floorLabel) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(3.8, 3.1, 2.2),
-    new THREE.MeshStandardMaterial({ color: 0x454d5c, roughness: 0.85 })
+    new THREE.MeshStandardMaterial({ color: 0x807a6e, roughness: 0.85 })
   );
   body.position.y = 1.55;
   g.add(body);

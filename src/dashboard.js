@@ -1,4 +1,5 @@
 import { createMockWorld } from './mockWorld.js';
+import { advisor } from './advisor.js';
 
 // F02/F03 界面（C 侧）。
 //
@@ -176,6 +177,9 @@ export function createDashboard({ root, stores = [], onStoreFocus = null }) {
   scenarioSec.appendChild(runBtn);
   const resultBox = el('div', 'dash-result');
   scenarioSec.appendChild(resultBox);
+  // AI 建议卡片（Issue #50）
+  const advisorBox = el('div', 'dash-advisor');
+  scenarioSec.appendChild(advisorBox);
   root.appendChild(scenarioSec);
 
   const addInput = controls.querySelector('#dash-add');
@@ -206,6 +210,16 @@ export function createDashboard({ root, stores = [], onStoreFocus = null }) {
       `<div class="dash-delta">流失率 ${signedPct(delta.lossRate)}</div>` +
       `</div>` +
       `<div class="dash-facts"><span>delta = after − before</span><span>模拟数据 · 非真实经营</span></div>`;
+
+    // AI 建议（Issue #50）：规则引擎，切换参数即重算
+    const advice = advisor({ metrics: world.getMetrics(), scenario: params, baseline: result.before });
+    advisorBox.innerHTML =
+      `<h3>AI 建议 <span class="dash-rule-tag">规则引擎 · 基于模拟数据</span></h3>` +
+      `<div class="dash-headline">${advice.headline}</div>` +
+      `<div class="dash-problem">${advice.problem}</div>` +
+      `<div class="dash-evidence">${advice.evidence.map((e) => `<span class="dash-chip">${e}</span>`).join('')}</div>` +
+      advice.actions.map((a) => `<div class="dash-action"><span class="dash-action-text">${a.text}</span><span class="dash-action-exp">${a.expected}</span></div>`).join('') +
+      `<div class="dash-caveat">${advice.caveat}</div>`;
   }
   runBtn.addEventListener('click', runScenario);
 
